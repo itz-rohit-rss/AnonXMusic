@@ -28,10 +28,10 @@ class DummyLogger:
 
 
 class TrackDetails:
-    def __init__(self, data: dict, file_path: str = None, video: bool = False):
-        self._data = data
-        self.title = data.get("title", "Unknown Title")
-        self.duration = data.get("duration", "00:00")
+    def __init__(self, data: dict = None, file_path: str = None, video: bool = False):
+        self._data = data or {}
+        self.title = self._data.get("title", "Unknown Title")
+        self.duration = self._data.get("duration", "00:00")
         self.duration_min = self.duration
         self.duration_sec = (
             utils.time_to_seconds(self.duration_min)
@@ -39,27 +39,37 @@ class TrackDetails:
             else 0
         )
         self.thumbnail = (
-            data.get("thumbnails", [{}])[0].get("url")
-            if data.get("thumbnails")
+            self._data.get("thumbnails", [{}])[0].get("url")
+            if self._data.get("thumbnails")
             else None
         )
-        self.vidid = data.get("id")
+        self.vidid = self._data.get("id")
         self.id = self.vidid
-        self.link = data.get("link")
+        self.link = self._data.get("link")
         self.file_path = file_path
         self.file = file_path
         self.file_name = file_path
         self.url = file_path or self.link
         self.video = video
         self.stream_type = "video" if video else "audio"
+        self.user_id = None
+        self.user_name = None
+        self.req_by = None
+        self.channel = None
 
     def __getattr__(self, name):
-        if name in self._data:
-            return self._data[name]
-        return None
+        if name in self.__dict__:
+            return self.__dict__[name]
+        return self._data.get(name, None)
+
+    def __setattr__(self, name, value):
+        self.__dict__[name] = value
 
     def __getitem__(self, key):
         return getattr(self, key, None)
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
 
 
 class YouTube:
