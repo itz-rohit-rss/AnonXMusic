@@ -11,6 +11,15 @@ class Inline:
     def cancel(self, text: types.InlineKeyboardButton):
         return self.ikm([[self.ikb(text=text, callback_data="cancel_dl")]])
 
+    def ping_markup(self, text: str = "📢 𝐒𝐮𝐩𝐩𝐨𝐫𝐭"):
+        return self.ikm(
+            [
+                [
+                    self.ikb(text=text, url=config.SUPPORT_CHAT),
+                ]
+            ]
+        )
+
     def start_key(self, lang, private: bool = False):
         if private:
             keyboard = [
