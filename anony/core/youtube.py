@@ -13,7 +13,6 @@ import yt_dlp
 from py_yt import Playlist, VideosSearch
 
 from anony import logger
-from anony.helpers import track, utils
 
 
 class DummyLogger:
@@ -120,4 +119,4 @@ class YouTube:
                 return filename
 
         return await loop.run_in_executor(None, _download)
-        
+            
