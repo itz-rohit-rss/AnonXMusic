@@ -8,4 +8,4 @@ pykeyboard==0.1.0
 pyrogram==2.1.0
 pytgcrypto==1.2.11
 python-dotenv==1.0.1
-yt-dlp
+git+https://github.com/yt-dlp/yt-dlp.git
