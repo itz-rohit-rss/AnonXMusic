@@ -29,8 +29,10 @@ class DummyLogger:
 
 class TrackDetails:
     def __init__(self, data: dict, file_path: str = None, video: bool = False):
+        self._data = data
         self.title = data.get("title", "Unknown Title")
-        self.duration_min = data.get("duration", "00:00")
+        self.duration = data.get("duration", "00:00")
+        self.duration_min = self.duration
         self.duration_sec = (
             utils.time_to_seconds(self.duration_min)
             if hasattr(utils, "time_to_seconds")
@@ -42,6 +44,7 @@ class TrackDetails:
             else None
         )
         self.vidid = data.get("id")
+        self.id = self.vidid
         self.link = data.get("link")
         self.file_path = file_path
         self.file = file_path
@@ -49,6 +52,11 @@ class TrackDetails:
         self.url = file_path or self.link
         self.video = video
         self.stream_type = "video" if video else "audio"
+
+    def __getattr__(self, name):
+        if name in self._data:
+            return self._data[name]
+        return None
 
     def __getitem__(self, key):
         return getattr(self, key, None)
@@ -168,4 +176,4 @@ class YouTube:
 
         file_path = await self.download(link, video=video)
         return TrackDetails(data, file_path=file_path, video=video)
-                        
+            
