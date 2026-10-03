@@ -1,7 +1,6 @@
 from pyrogram import types
 
-from anony import app, config, lang
-from anony.core.lang import lang_codes
+from anony import app, config
 
 
 class Inline:
@@ -12,13 +11,13 @@ class Inline:
     def cancel(self, text: types.InlineKeyboardButton):
         return self.ikm([[self.ikb(text=text, callback_data="cancel_dl")]])
 
-    def start_key(self, lang_code: str, private: bool = False):
+    def start_key(self, lang, private: bool = False):
         if private:
             keyboard = [
                 [
                     self.ikb(
                         text=lang["add_me"],
-                        url=f"[https://t.me/](https://t.me/){app.username}?startgroup=true",
+                        url=f"https://t.me/{app.username}?startgroup=true",
                     )
                 ],
                 [
@@ -35,7 +34,7 @@ class Inline:
                 [
                     self.ikb(
                         text=lang["add_me"],
-                        url=f"[https://t.me/](https://t.me/){app.username}?startgroup=true",
+                        url=f"https://t.me/{app.username}?startgroup=true",
                     )
                 ],
                 [
@@ -75,7 +74,7 @@ class Inline:
             )
             keyboard.append(
                 [
-                    self.ikb(text="⏭️️ 𝐒𝐤𝐢𝐩", callback_data=f"controls skip {chat_id}"),
+                    self.ikb(text="⏭️ 𝐒𝐤𝐢𝐩", callback_data=f"controls skip {chat_id}"),
                     self.ikb(text="⏹️ 𝐄𝐧𝐝", callback_data=f"controls stop {chat_id}"),
                 ]
             )
@@ -84,7 +83,7 @@ class Inline:
 
     def help_markup(
         self,
-        lang_code: str,
+        lang,
         back: bool = False,
     ) -> types.InlineKeyboardMarkup:
         if back:
@@ -105,12 +104,10 @@ class Inline:
 
         return self.ikm(rows)
 
-    def lang_markup(self, _: types.User) -> types.InlineKeyboardMarkup:
-        langs = lang.get_languages()
-
+    def lang_markup(self, langs: dict, current_lang: str) -> types.InlineKeyboardMarkup:
         buttons = [
             self.ikb(
-                text=(f"•{name}•" if code == _["lang"] else name),
+                text=(f"•{name}•" if code == current_lang else name),
                 callback_data=f"lang_change {code}",
             )
             for code, name in langs.items()
