@@ -45,7 +45,10 @@ class TrackDetails:
         self.link = data.get("link")
         self.file_path = file_path
         self.file = file_path
+        self.file_name = file_path
+        self.url = file_path or self.link
         self.video = video
+        self.stream_type = "video" if video else "audio"
 
     def __getitem__(self, key):
         return getattr(self, key, None)
@@ -165,4 +168,4 @@ class YouTube:
 
         file_path = await self.download(link, video=video)
         return TrackDetails(data, file_path=file_path, video=video)
-            
+                        
