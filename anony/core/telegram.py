@@ -9,7 +9,7 @@ import time
 from pyrogram import types
 
 from anony import config
-from anony.helpers import buttons, media, utils
+from anony.helpers import buttons, utils
 
 
 class Telegram:
@@ -52,10 +52,11 @@ class Telegram:
         file_size = getattr(media_obj, "file_size", 0)
         file_title = getattr(media_obj, "title", "Telegram File") or "Telegram File"
         duration = getattr(media_obj, "duration", 0)
-        video = bool(getattr(media_obj, "mime_type", "").startswith("video"))
 
         if duration > config.DURATION_LIMIT:
-            await sent.edit_text(sent.lang["play_duration_limit"].format(config.DURATION_LIMIT))
+            await sent.edit_text(
+                sent.lang["play_duration_limit"].format(config.DURATION_LIMIT)
+            )
             return await sent.stop_propagation()
 
         if file_size > 200 * 1024 * 1024:
@@ -72,18 +73,23 @@ class Telegram:
 
             self.last_edit[msg_id] = now
             percent = current * 100 / total
-            speed = current / (now - start_time)
-            eta = utils.format_duration((total - current) / speed)
-            bar = utils.get_progress_bar(percent)
+            speed = current / (now - start_time) if (now - start_time) > 0 else 1
+            eta = (
+                utils.format_duration((total - current) / speed)
+                if hasattr(utils, "format_duration")
+                else "00:00"
+            )
+            bar = (
+                utils.get_progress_bar(percent)
+                if hasattr(utils, "get_progress_bar")
+                else ""
+            )
 
             cancel_btn = None
-            try:
-                if hasattr(buttons, "cancel"):
-                    cancel_btn = buttons.cancel(sent.lang["cancel"])
-                elif hasattr(buttons, "cancel_dl"):
-                    cancel_btn = buttons.cancel_dl(sent.lang["cancel"])
-            except Exception:
-                cancel_btn = None
+            if hasattr(buttons, "cancel"):
+                cancel_btn = buttons.cancel(sent.lang["cancel"])
+            elif hasattr(buttons, "cancel_dl"):
+                cancel_btn = buttons.cancel_dl(sent.lang["cancel"])
 
             try:
                 await sent.edit_text(
@@ -91,9 +97,15 @@ class Telegram:
                         file_title,
                         bar,
                         round(percent, 2),
-                        utils.format_size(current),
-                        utils.format_size(total),
-                        utils.format_size(speed),
+                        utils.humanbytes(current)
+                        if hasattr(utils, "humanbytes")
+                        else f"{round(current / (1024 * 1024), 2)} MB",
+                        utils.humanbytes(total)
+                        if hasattr(utils, "humanbytes")
+                        else f"{round(total / (1024 * 1024), 2)} MB",
+                        utils.humanbytes(speed)
+                        if hasattr(utils, "humanbytes")
+                        else f"{round(speed / (1024 * 1024), 2)} MB/s",
                         eta,
                     ),
                     reply_markup=cancel_btn,
