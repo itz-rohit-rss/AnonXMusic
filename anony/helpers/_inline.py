@@ -16,6 +16,38 @@ class Inline:
     def cancel(self, text: types.InlineKeyboardButton):
         return self.ikm([[self.ikb(text=text, callback_data="cancel_dl")]])
 
+    def start_key(self, lang_code: str, private: bool = False):
+        if private:
+            keyboard = [
+                [
+                    self.ikb(
+                        text=lang["add_me"],
+                        url=f"https://t.me/{app.username}?startgroup=true",
+                    )
+                ],
+                [
+                    self.ikb(text=lang["help_button"], callback_data="help_menu"),
+                    self.ikb(text=lang["lang_button"], callback_data="lang_menu"),
+                ],
+                [
+                    self.ikb(text=lang["support_button"], url=config.SUPPORT_CHAT),
+                    self.ikb(text=lang["channel_button"], url=config.SUPPORT_CHANNEL),
+                ],
+            ]
+        else:
+            keyboard = [
+                [
+                    self.ikb(
+                        text=lang["add_me"],
+                        url=f"https://t.me/{app.username}?startgroup=true",
+                    )
+                ],
+                [
+                    self.ikb(text=lang["support_button"], url=config.SUPPORT_CHAT),
+                ],
+            ]
+        return self.ikm(keyboard)
+
     def controls(
         self,
         chat_id: int,
@@ -41,7 +73,7 @@ class Inline:
             keyboard.append(
                 [
                     self.ikb(text="▶️", callback_data=f"controls resume {chat_id}"),
-                    self.ikb(text="⏸️", callback_data=f"controls pause {chat_id}"),
+                    self.ikb(text="⏸️️", callback_data=f"controls pause {chat_id}"),
                     self.ikb(text="🔄", callback_data=f"controls replay {chat_id}"),
                 ]
             )
