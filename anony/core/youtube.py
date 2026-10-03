@@ -27,6 +27,24 @@ class DummyLogger:
         pass
 
 
+class TrackDetails:
+    def __init__(self, data: dict, file_path: str = None):
+        self.title = data.get("title", "Unknown Title")
+        self.duration_min = data.get("duration", "00:00")
+        self.duration_sec = utils.time_to_seconds(self.duration_min) if hasattr(utils, "time_to_seconds") else 0
+        self.thumbnail = (
+            data.get("thumbnails", [{}])[0].get("url")
+            if data.get("thumbnails")
+            else None
+        )
+        self.vidid = data.get("id")
+        self.link = data.get("link")
+        self.file_path = file_path
+
+    def __getitem__(self, key):
+        return getattr(self, key, None)
+
+
 class YouTube:
     def __init__(self):
         self.base = "https://www.youtube.com/watch?v="
@@ -119,14 +137,17 @@ class YouTube:
     async def search(self, query: str, sent_id: int = None, video: bool = False):
         if self.valid(query):
             link = query
+            vid_id = query.split("v=")[-1].split("&")[0] if "v=" in query else query.split("/")[-1]
+            data = {"title": "YouTube Audio", "duration": "04:00", "id": vid_id, "link": link}
         else:
             search = VideosSearch(query, limit=1)
             results = await search.next()
             res = results.get("result", [])
             if not res:
                 return None
-            link = res[0].get("link")
+            data = res[0]
+            link = data.get("link")
 
         file_path = await self.download(link, video=video)
-        return file_path
+        return TrackDetails(data, file_path=file_path)
         
