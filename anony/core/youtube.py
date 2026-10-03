@@ -13,6 +13,7 @@ import yt_dlp
 from py_yt import Playlist, VideosSearch
 
 from anony import logger
+from anony.helpers import utils
 
 
 class DummyLogger:
@@ -75,11 +76,6 @@ class YouTube:
     def invalid(self, url: str) -> bool:
         return not bool(re.match(self.regex_, url))
 
-    async def search(self, query: str, limit: int = 1) -> list[dict]:
-        search = VideosSearch(query, limit=limit)
-        results = await search.next()
-        return results.get("result", [])
-
     async def playlist(self, url: str, limit: int = 50) -> list[dict]:
         playlist = Playlist(url)
         while playlist.hasMoreVideos and len(playlist.videos) < limit:
@@ -119,4 +115,18 @@ class YouTube:
                 return filename
 
         return await loop.run_in_executor(None, _download)
-            
+
+    async def search(self, query: str, sent_id: int = None, video: bool = False):
+        if self.valid(query):
+            link = query
+        else:
+            search = VideosSearch(query, limit=1)
+            results = await search.next()
+            res = results.get("result", [])
+            if not res:
+                return None
+            link = res[0].get("link")
+
+        file_path = await self.download(link, video=video)
+        return file_path
+        
