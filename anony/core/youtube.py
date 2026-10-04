@@ -4,14 +4,11 @@
 
 import asyncio
 import os
-import random
 import re
 from pathlib import Path
 
 import aiohttp
 import yt_dlp
-from py_compile import compile
-from youtubesearchpython.__future__ import Playlist, VideosSearch
 
 from anony import LOGGER
 from anony.helpers import utils
@@ -45,7 +42,7 @@ class TrackDetails:
         )
         self.vidid = self.data.get("id")
         self.id = self.vidid
-        self.link = self.data.get("link")
+        self.link = self.data.get("webpage_url") or self.data.get("url")
         self.file_path = file_path
         self.file_name = file_path
         self.url = file_path or self.link
@@ -93,28 +90,60 @@ class YouTube:
         return await self.valid(link)
 
     async def track(self, query: str):
-        if await self.valid(query):
-            link = query
-        else:
-            search = VideosSearch(query, limit=1)
-            results = await search.next()
-            if not results["result"]:
-                return None
-            link = results["result"][0]["link"]
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
+            "geo_bypass": True,
+            "logger": DummyLogger(),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios"]
+                }
+            },
+        }
+        if os.path.exists("cookies.txt"):
+            ydl_opts["cookiefile"] = "cookies.txt"
 
-        details = VideosSearch(link, limit=1)
-        res = await details.next()
-        if not res["result"]:
+        loop = asyncio.get_event_loop()
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                if not await self.valid(query):
+                    info = await loop.run_in_executor(
+                        None, lambda: ydl.extract_info(f"ytsearch1:{query}", download=False)
+                    )
+                    if not info or not info.get("entries"):
+                        return None
+                    data = info["entries"][0]
+                else:
+                    data = await loop.run_in_executor(
+                        None, lambda: ydl.extract_info(query, download=False)
+                    )
+                return TrackDetails(data)
+        except Exception as e:
+            LOGGER(__name__).error(f"YouTube search error: {e}")
             return None
-        return TrackDetails(res["result"][0])
 
     async def playlist(self, link: str, limit: int = 50):
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
+            "logger": DummyLogger(),
+        }
+        if os.path.exists("cookies.txt"):
+            ydl_opts["cookiefile"] = "cookies.txt"
+
+        loop = asyncio.get_event_loop()
         try:
-            plist = await Playlist.create(link)
-            tracks = []
-            for video in plist.videos[:limit]:
-                tracks.append(TrackDetails(video))
-            return tracks
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = await loop.run_in_executor(
+                    None, lambda: ydl.extract_info(link, download=False)
+                )
+                tracks = []
+                for entry in info.get("entries", [])[:limit]:
+                    tracks.append(TrackDetails(entry))
+                return tracks
         except Exception:
             return []
 
@@ -165,4 +194,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-        
+                
