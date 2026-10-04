@@ -27,11 +27,9 @@ class DummyLogger:
 
 
 def get_cookie_file():
-    # 1. Check anony/cookies/ directory for any .txt file
     cookie_files = glob.glob("anony/cookies/*.txt")
     if cookie_files:
         return cookie_files[0]
-    # 2. Check root directory
     if os.path.exists("cookies.txt"):
         return "cookies.txt"
     return None
@@ -129,6 +127,11 @@ class YouTube:
             "extract_flat": True,
             "geo_bypass": True,
             "logger": DummyLogger(),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios"]
+                }
+            },
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
@@ -165,6 +168,11 @@ class YouTube:
             "no_warnings": True,
             "extract_flat": True,
             "logger": DummyLogger(),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios"]
+                }
+            },
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
@@ -199,6 +207,11 @@ class YouTube:
             "quiet": True,
             "no_warnings": True,
             "logger": DummyLogger(),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios"]
+                }
+            },
         }
 
         if cookie_file:
@@ -225,4 +238,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-    
+                
