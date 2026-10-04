@@ -27,11 +27,26 @@ class DummyLogger:
 
 
 def get_cookie_file():
-    cookie_files = glob.glob("anony/cookies/*.txt")
+    # Current file directory se cookies folder ka absolute path nikalna
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cookies_dir = os.path.join(base_dir, "cookies")
+
+    cookie_files = glob.glob(os.path.join(cookies_dir, "*.txt"))
     if cookie_files:
+        LOGGER.info(f"Loaded cookie file: {cookie_files[0]}")
         return cookie_files[0]
+
+    # Check root directory
+    root_cookie = os.path.join(os.path.dirname(base_dir), "cookies.txt")
+    if os.path.exists(root_cookie):
+        LOGGER.info(f"Loaded cookie file from root: {root_cookie}")
+        return root_cookie
+
     if os.path.exists("cookies.txt"):
+        LOGGER.info("Loaded cookie file: cookies.txt")
         return "cookies.txt"
+
+    LOGGER.warning("No cookie file found in anony/cookies/ or root directory!")
     return None
 
 
@@ -103,8 +118,10 @@ class YouTube:
         return self.cookies
 
     def save_cookies(self, cookies: str):
-        os.makedirs("anony/cookies", exist_ok=True)
-        with open("anony/cookies/cookies.txt", "w") as f:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cookies_dir = os.path.join(base_dir, "cookies")
+        os.makedirs(cookies_dir, exist_ok=True)
+        with open(os.path.join(cookies_dir, "cookies.txt"), "w") as f:
             f.write(cookies)
         self.check_cookies()
 
@@ -127,11 +144,6 @@ class YouTube:
             "extract_flat": True,
             "geo_bypass": True,
             "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
@@ -168,11 +180,6 @@ class YouTube:
             "no_warnings": True,
             "extract_flat": True,
             "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
@@ -207,11 +214,6 @@ class YouTube:
             "quiet": True,
             "no_warnings": True,
             "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
         }
 
         if cookie_file:
@@ -238,4 +240,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-                
+        
