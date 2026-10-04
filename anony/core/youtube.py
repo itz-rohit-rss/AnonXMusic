@@ -3,6 +3,7 @@
 # This file is part of AnonXMusic
 
 import asyncio
+import glob
 import logging
 import os
 import re
@@ -23,6 +24,17 @@ class DummyLogger:
 
     def error(self, msg):
         pass
+
+
+def get_cookie_file():
+    # 1. Check anony/cookies/ directory for any .txt file
+    cookie_files = glob.glob("anony/cookies/*.txt")
+    if cookie_files:
+        return cookie_files[0]
+    # 2. Check root directory
+    if os.path.exists("cookies.txt"):
+        return "cookies.txt"
+    return None
 
 
 class TrackDetails:
@@ -85,14 +97,16 @@ class YouTube:
         self.check_cookies()
 
     def check_cookies(self):
-        if os.path.exists("cookies.txt"):
-            self.cookies = ["cookies.txt"]
+        cookie = get_cookie_file()
+        if cookie:
+            self.cookies = [cookie]
 
     def get_cookies(self):
         return self.cookies
 
     def save_cookies(self, cookies: str):
-        with open("cookies.txt", "w") as f:
+        os.makedirs("anony/cookies", exist_ok=True)
+        with open("anony/cookies/cookies.txt", "w") as f:
             f.write(cookies)
         self.check_cookies()
 
@@ -108,20 +122,16 @@ class YouTube:
         return await self.valid(link)
 
     async def search(self, query: str, message_id: int = None, video: bool = False, *args, **kwargs):
+        cookie_file = get_cookie_file()
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
             "geo_bypass": True,
             "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
         }
-        if os.path.exists("cookies.txt"):
-            ydl_opts["cookiefile"] = "cookies.txt"
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
 
         loop = asyncio.get_event_loop()
         try:
@@ -146,49 +156,18 @@ class YouTube:
             return None
 
     async def track(self, query: str):
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "extract_flat": True,
-            "geo_bypass": True,
-            "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
-        }
-        if os.path.exists("cookies.txt"):
-            ydl_opts["cookiefile"] = "cookies.txt"
-
-        loop = asyncio.get_event_loop()
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                if not await self.valid(query):
-                    info = await loop.run_in_executor(
-                        None, lambda: ydl.extract_info(f"ytsearch1:{query}", download=False)
-                    )
-                    if not info or not info.get("entries"):
-                        return None
-                    entry = info["entries"][0]
-                else:
-                    entry = await loop.run_in_executor(
-                        None, lambda: ydl.extract_info(query, download=False)
-                    )
-                return TrackDetails(entry)
-        except Exception as e:
-            LOGGER.error(f"YouTube track error: {e}")
-            return None
+        return await self.search(query)
 
     async def playlist(self, link: str, limit: int = 50):
+        cookie_file = get_cookie_file()
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
             "logger": DummyLogger(),
         }
-        if os.path.exists("cookies.txt"):
-            ydl_opts["cookiefile"] = "cookies.txt"
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
 
         loop = asyncio.get_event_loop()
         try:
@@ -211,23 +190,19 @@ class YouTube:
         if os.path.exists(out):
             return out
 
+        cookie_file = get_cookie_file()
         ydl_opts = {
-            "format": "bestvideo+bestaudio/best" if video else "bestaudio/best",
+            "format": "bestaudio/best" if not video else "bestvideo+bestaudio/best",
             "outtmpl": f"downloads/{vidid}.%(ext)s",
             "geo_bypass": True,
             "nocheckcertificate": True,
             "quiet": True,
             "no_warnings": True,
             "logger": DummyLogger(),
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
         }
 
-        if os.path.exists("cookies.txt"):
-            ydl_opts["cookiefile"] = "cookies.txt"
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
 
         if not video:
             ydl_opts["postprocessors"] = [
@@ -250,4 +225,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-        
+    
