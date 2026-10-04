@@ -27,26 +27,20 @@ class DummyLogger:
 
 
 def get_cookie_file():
-    # Current file directory se cookies folder ka absolute path nikalna
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cookies_dir = os.path.join(base_dir, "cookies")
 
     cookie_files = glob.glob(os.path.join(cookies_dir, "*.txt"))
     if cookie_files:
-        LOGGER.info(f"Loaded cookie file: {cookie_files[0]}")
         return cookie_files[0]
 
-    # Check root directory
     root_cookie = os.path.join(os.path.dirname(base_dir), "cookies.txt")
     if os.path.exists(root_cookie):
-        LOGGER.info(f"Loaded cookie file from root: {root_cookie}")
         return root_cookie
 
     if os.path.exists("cookies.txt"):
-        LOGGER.info("Loaded cookie file: cookies.txt")
         return "cookies.txt"
 
-    LOGGER.warning("No cookie file found in anony/cookies/ or root directory!")
     return None
 
 
@@ -59,15 +53,19 @@ class TrackDetails:
             mins, secs = divmod(int(self.duration_min), 60)
             self.duration_min = f"{mins:02d}:{secs:02d}"
 
+        self.duration = self.duration_min
         self.duration_sec = (
             utils.time_to_seconds(self.duration_min)
             if hasattr(utils, "time_to_seconds")
             else 0
         )
+        self.seconds = self.duration_sec
+
         thumbnails = self.data.get("thumbnails", [])
         self.thumbnail = (
             thumbnails[-1].get("url") if thumbnails else self.data.get("thumbnail")
         )
+        self.thumb = self.thumbnail
         self.vidid = self.data.get("id")
         self.id = self.vidid
         self.link = (
@@ -84,6 +82,9 @@ class TrackDetails:
         self.user_name = None
         self.req_by = None
         self.channel = self.data.get("uploader") or self.data.get("channel")
+
+    def __getattr__(self, name):
+        return self.data.get(name, "")
 
     def __getitem__(self, item):
         if item in self.__dict__:
@@ -240,4 +241,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-        
+    
