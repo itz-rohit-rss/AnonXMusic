@@ -33,17 +33,23 @@ class TrackDetails:
         if isinstance(self.duration_min, (int, float)):
             mins, secs = divmod(int(self.duration_min), 60)
             self.duration_min = f"{mins:02d}:{secs:02d}"
-        
+
         self.duration_sec = (
             utils.time_to_seconds(self.duration_min)
             if hasattr(utils, "time_to_seconds")
             else 0
         )
         thumbnails = self.data.get("thumbnails", [])
-        self.thumbnail = thumbnails[-1].get("url") if thumbnails else self.data.get("thumbnail")
+        self.thumbnail = (
+            thumbnails[-1].get("url") if thumbnails else self.data.get("thumbnail")
+        )
         self.vidid = self.data.get("id")
         self.id = self.vidid
-        self.link = self.data.get("webpage_url") or self.data.get("url") or f"https://www.youtube.com/watch?v={self.vidid}"
+        self.link = (
+            self.data.get("webpage_url")
+            or self.data.get("url")
+            or f"https://www.youtube.com/watch?v={self.vidid}"
+        )
         self.file_path = file_path
         self.file_name = file_path
         self.url = file_path or self.link
@@ -101,7 +107,7 @@ class YouTube:
     async def exists(self, link: str):
         return await self.valid(link)
 
-    async def search(self, query: str, limit: int = 1):
+    async def search(self, query: str, message_id: int = None, video: bool = False, *args, **kwargs):
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
@@ -121,29 +127,58 @@ class YouTube:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 if not await self.valid(query):
-                    search_query = f"ytsearch{limit}:{query}"
                     info = await loop.run_in_executor(
-                        None, lambda: ydl.extract_info(search_query, download=False)
+                        None, lambda: ydl.extract_info(f"ytsearch1:{query}", download=False)
                     )
                     if not info or not info.get("entries"):
                         return None
-                    if limit == 1:
-                        return TrackDetails(info["entries"][0])
-                    return [TrackDetails(entry) for entry in info["entries"]]
+                    entry = info["entries"][0]
                 else:
-                    info = await loop.run_in_executor(
+                    entry = await loop.run_in_executor(
                         None, lambda: ydl.extract_info(query, download=False)
                     )
-                    return TrackDetails(info)
+
+                vidid = entry.get("id")
+                file_path = await self.download(vidid, video=video)
+                return TrackDetails(entry, file_path=file_path, video=video)
         except Exception as e:
             LOGGER.error(f"YouTube search error: {e}")
             return None
 
     async def track(self, query: str):
-        res = await self.search(query, limit=1)
-        if isinstance(res, list):
-            return res[0] if res else None
-        return res
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
+            "geo_bypass": True,
+            "logger": DummyLogger(),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios"]
+                }
+            },
+        }
+        if os.path.exists("cookies.txt"):
+            ydl_opts["cookiefile"] = "cookies.txt"
+
+        loop = asyncio.get_event_loop()
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                if not await self.valid(query):
+                    info = await loop.run_in_executor(
+                        None, lambda: ydl.extract_info(f"ytsearch1:{query}", download=False)
+                    )
+                    if not info or not info.get("entries"):
+                        return None
+                    entry = info["entries"][0]
+                else:
+                    entry = await loop.run_in_executor(
+                        None, lambda: ydl.extract_info(query, download=False)
+                    )
+                return TrackDetails(entry)
+        except Exception as e:
+            LOGGER.error(f"YouTube track error: {e}")
+            return None
 
     async def playlist(self, link: str, limit: int = 50):
         ydl_opts = {
@@ -215,4 +250,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-                    
+        
