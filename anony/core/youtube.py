@@ -29,20 +29,21 @@ class TrackDetails:
     def __init__(self, data: dict = None, file_path: str = None, video: bool = False):
         self.data = data or {}
         self.title = self.data.get("title", "Unknown Track")
-        self.duration_min = self.data.get("duration", "00:00")
+        self.duration_min = self.data.get("duration_string") or self.data.get("duration", "00:00")
+        if isinstance(self.duration_min, (int, float)):
+            mins, secs = divmod(int(self.duration_min), 60)
+            self.duration_min = f"{mins:02d}:{secs:02d}"
+        
         self.duration_sec = (
             utils.time_to_seconds(self.duration_min)
             if hasattr(utils, "time_to_seconds")
             else 0
         )
-        self.thumbnail = (
-            self.data.get("thumbnails", [{}])[0].get("url")
-            if self.data.get("thumbnails")
-            else None
-        )
+        thumbnails = self.data.get("thumbnails", [])
+        self.thumbnail = thumbnails[-1].get("url") if thumbnails else self.data.get("thumbnail")
         self.vidid = self.data.get("id")
         self.id = self.vidid
-        self.link = self.data.get("webpage_url") or self.data.get("url")
+        self.link = self.data.get("webpage_url") or self.data.get("url") or f"https://www.youtube.com/watch?v={self.vidid}"
         self.file_path = file_path
         self.file_name = file_path
         self.url = file_path or self.link
@@ -51,7 +52,7 @@ class TrackDetails:
         self.user_id = None
         self.user_name = None
         self.req_by = None
-        self.channel = None
+        self.channel = self.data.get("uploader") or self.data.get("channel")
 
     def __getitem__(self, item):
         if item in self.__dict__:
@@ -81,15 +82,26 @@ class YouTube:
         if os.path.exists("cookies.txt"):
             self.cookies = ["cookies.txt"]
 
+    def get_cookies(self):
+        return self.cookies
+
+    def save_cookies(self, cookies: str):
+        with open("cookies.txt", "w") as f:
+            f.write(cookies)
+        self.check_cookies()
+
     async def valid(self, link: str):
         if re.search(self.regex, link):
             return True
         return False
 
+    async def invalid(self, link: str):
+        return not await self.valid(link)
+
     async def exists(self, link: str):
         return await self.valid(link)
 
-    async def track(self, query: str):
+    async def search(self, query: str, limit: int = 1):
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
@@ -109,20 +121,29 @@ class YouTube:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 if not await self.valid(query):
+                    search_query = f"ytsearch{limit}:{query}"
                     info = await loop.run_in_executor(
-                        None, lambda: ydl.extract_info(f"ytsearch1:{query}", download=False)
+                        None, lambda: ydl.extract_info(search_query, download=False)
                     )
                     if not info or not info.get("entries"):
                         return None
-                    data = info["entries"][0]
+                    if limit == 1:
+                        return TrackDetails(info["entries"][0])
+                    return [TrackDetails(entry) for entry in info["entries"]]
                 else:
-                    data = await loop.run_in_executor(
+                    info = await loop.run_in_executor(
                         None, lambda: ydl.extract_info(query, download=False)
                     )
-                return TrackDetails(data)
+                    return TrackDetails(info)
         except Exception as e:
             LOGGER.error(f"YouTube search error: {e}")
             return None
+
+    async def track(self, query: str):
+        res = await self.search(query, limit=1)
+        if isinstance(res, list):
+            return res[0] if res else None
+        return res
 
     async def playlist(self, link: str, limit: int = 50):
         ydl_opts = {
@@ -194,4 +215,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-            
+                    
