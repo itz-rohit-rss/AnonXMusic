@@ -3,15 +3,15 @@
 # This file is part of AnonXMusic
 
 import asyncio
+import logging
 import os
 import re
-from pathlib import Path
 
-import aiohttp
 import yt_dlp
 
-from anony import LOGGER
 from anony.helpers import utils
+
+LOGGER = logging.getLogger("AnonXMusic.YouTube")
 
 
 class DummyLogger:
@@ -121,7 +121,7 @@ class YouTube:
                     )
                 return TrackDetails(data)
         except Exception as e:
-            LOGGER(__name__).error(f"YouTube search error: {e}")
+            LOGGER.error(f"YouTube search error: {e}")
             return None
 
     async def playlist(self, link: str, limit: int = 50):
@@ -194,4 +194,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-                
+            
