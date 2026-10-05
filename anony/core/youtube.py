@@ -7,6 +7,7 @@ import glob
 import logging
 import os
 import re
+import urllib.request
 
 import yt_dlp
 
@@ -119,17 +120,36 @@ class YouTube:
         return self.cookies
 
     async def save_cookies(self, cookies=None):
-        if cookies:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            cookies_dir = os.path.join(base_dir, "cookies")
-            os.makedirs(cookies_dir, exist_ok=True)
-            if isinstance(cookies, list):
-                cookies = "".join(cookies)
-            elif not isinstance(cookies, str):
-                cookies = str(cookies)
-            with open(os.path.join(cookies_dir, "cookies.txt"), "w") as f:
-                f.write(cookies)
-            self.check_cookies()
+        if not cookies:
+            return True
+
+        if isinstance(cookies, list):
+            cookies = "".join(cookies)
+        elif not isinstance(cookies, str):
+            cookies = str(cookies)
+
+        cookies = cookies.strip()
+
+        # Agar variable me URL pass hua hai toh actual cookie download karein
+        if cookies.startswith("http://") or cookies.startswith("https://"):
+            try:
+                req = urllib.request.Request(
+                    cookies,
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    cookies = resp.read().decode("utf-8")
+            except Exception as e:
+                LOGGER.error(f"Failed to fetch cookies from URL: {e}")
+                return False
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cookies_dir = os.path.join(base_dir, "cookies")
+        os.makedirs(cookies_dir, exist_ok=True)
+        with open(os.path.join(cookies_dir, "cookies.txt"), "w", encoding="utf-8") as f:
+            f.write(cookies)
+
+        self.check_cookies()
         return True
 
     async def valid(self, link: str):
@@ -247,4 +267,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-    
+            
