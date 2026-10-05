@@ -118,10 +118,14 @@ class YouTube:
     def get_cookies(self):
         return self.cookies
 
-    def save_cookies(self, cookies: str):
+    def save_cookies(self, cookies):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         cookies_dir = os.path.join(base_dir, "cookies")
         os.makedirs(cookies_dir, exist_ok=True)
+        if isinstance(cookies, list):
+            cookies = "".join(cookies)
+        elif not isinstance(cookies, str):
+            cookies = str(cookies)
         with open(os.path.join(cookies_dir, "cookies.txt"), "w") as f:
             f.write(cookies)
         self.check_cookies()
@@ -241,4 +245,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-    
+        
