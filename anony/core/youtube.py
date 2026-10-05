@@ -27,7 +27,36 @@ class DummyLogger:
         pass
 
 
+def ensure_cookies():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cookies_dir = os.path.join(base_dir, "cookies")
+    os.makedirs(cookies_dir, exist_ok=True)
+    target_file = os.path.join(cookies_dir, "cookies.txt")
+
+    cookie_url = os.environ.get("COOKIES_URL", "https://batbin.me/raw/warms")
+    if cookie_url and (cookie_url.startswith("http://") or cookie_url.startswith("https://")):
+        try:
+            req = urllib.request.Request(cookie_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                content = resp.read().decode("utf-8")
+                if "Netscape" in content or "youtube.com" in content:
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    return target_file
+        except Exception as e:
+            LOGGER.error(f"Failed to fetch cookies from URL: {e}")
+
+    if os.path.exists(target_file) and os.path.getsize(target_file) > 100:
+        return target_file
+
+    return None
+
+
 def get_cookie_file():
+    cookie = ensure_cookies()
+    if cookie:
+        return cookie
+
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cookies_dir = os.path.join(base_dir, "cookies")
 
@@ -130,7 +159,6 @@ class YouTube:
 
         cookies = cookies.strip()
 
-        # Agar variable me URL pass hua hai toh actual cookie download karein
         if cookies.startswith("http://") or cookies.startswith("https://"):
             try:
                 req = urllib.request.Request(
@@ -267,4 +295,4 @@ class YouTube:
             if f.startswith(vidid):
                 return os.path.join("downloads", f)
         return None
-            
+        
