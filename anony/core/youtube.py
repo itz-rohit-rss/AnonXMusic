@@ -119,10 +119,10 @@ class YouTube:
 
         info = await loop.run_in_executor(None, _get_info)
         title = info.get("title")
-        duration_min = info.get("duration")
+        duration_min = utils.seconds_to_min(info.get("duration", 0)) if hasattr(utils, "seconds_to_min") else str(info.get("duration", 0))
+        duration_sec = int(info.get("duration") or 0)
         thumbnail = info.get("thumbnail")
         vidid = info.get("id")
-        duration_sec = int(duration_min) if duration_min else 0
         return title, duration_min, duration_sec, thumbnail, vidid
 
     async def title(self, link: str, videoid: bool = False):
@@ -211,14 +211,18 @@ class YouTube:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
                 title = info.get("title")
-                dur = info.get("duration")
+                dur_sec = info.get("duration") or 0
+                dur_min = utils.seconds_to_min(dur_sec) if hasattr(utils, "seconds_to_min") else str(dur_sec)
                 vidid = info.get("id")
-                yturl = info.get("webpage_url")
+                yturl = info.get("webpage_url") or f"https://www.youtube.com/watch?v={vidid}"
+                thumb = info.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
                 return {
                     "title": title,
                     "link": yturl,
                     "vidid": vidid,
-                    "duration_min": dur,
+                    "duration_min": dur_min,
+                    "duration_sec": dur_sec,
+                    "thumb": thumb,
                 }, vidid
 
         return await loop.run_in_executor(None, _get_track)
@@ -283,17 +287,39 @@ class YouTube:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
                 title = info.get("title")
-                duration_min = info.get("duration")
+                dur_sec = info.get("duration") or 0
+                duration_min = utils.seconds_to_min(dur_sec) if hasattr(utils, "seconds_to_min") else str(dur_sec)
                 thumbnail = info.get("thumbnail")
                 vidid = info.get("id")
                 return title, duration_min, thumbnail, vidid
 
         return await loop.run_in_executor(None, _get_slider)
 
+    async def playlist(self, link: str, limit: int, user_id, videoid: bool = False):
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "logger": DummyLogger(),
+            "cookiefile": self.cookie_file,
+            "extract_flat": True,
+        }
+        loop = asyncio.get_running_loop()
+
+        def _get_playlist():
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(link, download=False)
+                entries = []
+                for entry in (info.get("entries") or [])[:limit]:
+                    if entry and entry.get("id"):
+                        entries.append(entry.get("id"))
+                return entries
+
+        return await loop.run_in_executor(None, _get_playlist)
+
     async def download(
         self,
         link: str,
-        mystic,
+        mystic=None,
         video: bool = False,
         videoid: bool = False,
         songaudio: bool = False,
@@ -304,6 +330,7 @@ class YouTube:
         if videoid:
             link = self.base + link
 
+        os.makedirs("downloads", exist_ok=True)
         loop = asyncio.get_running_loop()
 
         def _download():
@@ -351,27 +378,39 @@ class YouTube:
 
         return await loop.run_in_executor(None, _download)
 
-    async def search(self, query: str):
+    async def search(self, query: str, mystic=None):
         opts = {
             "quiet": True,
             "no_warnings": True,
             "logger": DummyLogger(),
             "cookiefile": self.cookie_file,
             "extract_flat": True,
+            "skip_download": True,
         }
         loop = asyncio.get_running_loop()
 
         def _search():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 res = ydl.extract_info(f"ytsearch1:{query}", download=False)
-                if "entries" in res and res["entries"]:
+                if res and "entries" in res and res["entries"]:
                     entry = res["entries"][0]
-                    t = entry.get("title")
-                    d = entry.get("duration")
-                    thumb = entry.get("thumbnail") or ""
-                    v = entry.get("id")
-                    return t, d, thumb, v
-            return None, None, None, None
+                    vidid = entry.get("id")
+                    title = entry.get("title")
+                    dur_sec = entry.get("duration") or 0
+                    duration_min = utils.seconds_to_min(dur_sec) if hasattr(utils, "seconds_to_min") else str(dur_sec)
+                    thumbnail = entry.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
+                    link = f"https://www.youtube.com/watch?v={vidid}"
+                    return {
+                        "title": title,
+                        "link": link,
+                        "vidid": vidid,
+                        "duration_min": duration_min,
+                        "duration_sec": dur_sec,
+                        "thumb": thumbnail,
+                    }, vidid
+            return None, None
 
-        return await loop.run_in_executor(None, _search)
-        
+        result, vidid = await loop.run_in_executor(None, _search)
+        if not vidid:
+            raise Exception("No results found on YouTube.")
+        return result, vidid
