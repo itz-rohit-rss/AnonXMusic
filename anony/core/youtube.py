@@ -45,7 +45,7 @@ RAW_COOKIE_DATA = """# Netscape HTTP Cookie File
 .youtube.com	TRUE	/	TRUE	1823012252	__Secure-3PSIDCC	AKEyXzXnlYCuboVLKWBtkkH6VNNDtZ0VdY7EvBHCBf_-fM2qe0V1mu78AfPDn1U4rIri41m8DA
 .youtube.com	TRUE	/	TRUE	1807028233	VISITOR_INFO1_LIVE	sLOnAaQZRI4
 .youtube.com	TRUE	/	TRUE	1807028233	VISITOR_PRIVACY_METADATA	CgJJThIEGgAgNA%3D%3D
-.youtube.com	TRUE	/	TRUE	1807025766	__Secure-YNID	22.YT=Ak5E31hC2DYQOPVGjgjgZGd5ys_ko4Ha-g8QpGtNDuNnE3gIpKY1-OgKh7J0RPh9NqeytiCbOeRl9Sec_vw4zEZ1mPHiqbEpD0XgZh7lJFaXYV7yWTpLl9xPts0x8BGQsiTnT04nE9saKk-amJHRJp6qmPRBdw4GUe2yOtHEqbbgVkXpYCUAQXlPkQ3kFnM_eY1mxOt0wg5FBw06r7ASiBIYOJDQw_Eb9d_m5Y2pOPPKm4JZS99opqsr-7T4zByods-pXQF6ywlGb5ScxeY7-izu5lZe3CbH9-sCKSB4l6ZtBVI6Wj59UPsefo1kvK1ViysZvyIaEDMRrEBgN_EPpA
+.youtube.com	TRUE	/	TRUE	1807025766	__Secure-YNID	22.YT=Ak5E31hC2DYQOPVGjgjgZGd5ys_ko4Ha-g8QGtNDuNnE3gIpKY1-OgKh7J0RPh9NqeytiCbOeRl9Sec_vw4zEZ1mPHiqbEpD0XgZh7lJFaXYV7yWTpLl9xPts0x8BGQsiTnT04nE9saKk-amJHRJp6qmPRBdw4GUe2yOtHEqbbgVkXpYCUAQXlPkQ3kFnM_eY1mxOt0wg5FBw06r7ASiBIYOJDQw_Eb9d_m5Y2pOPPKm4JZS99opqsr-7T4zByods-pXQF6ywlGb5ScxeY7-izu5lZe3CbH9-sCKSB4l6ZtBVI6Wj59UPsefo1kvK1ViysZvyIaEDMRrEBgN_EPpA
 .youtube.com	TRUE	/	TRUE	0	YSC	_sqN7P2FXxg
 .youtube.com	TRUE	/	TRUE	1807025767	__Secure-ROLLOUT_TOKEN	CKDpj6KO1qzlfBCdi9ny2KaUAxieo4Ts36qXAw%3D%3D"""
 
@@ -65,7 +65,7 @@ class YouTube:
         self.status = "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v="
         self.cookie_file = get_cookie_file()
 
-    def save_cookies(self, *args, **kwargs):
+    async def save_cookies(self, *args, **kwargs):
         self.cookie_file = get_cookie_file()
         return self.cookie_file
 
@@ -374,4 +374,4 @@ class YouTube:
             return None, None, None, None
 
         return await loop.run_in_executor(None, _search)
-            
+        
