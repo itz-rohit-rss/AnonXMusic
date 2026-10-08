@@ -3,14 +3,14 @@
 # This file is part of AnonXMusic
 
 import asyncio
+import logging
 import os
 import re
 import yt_dlp
-
-from anony.helpers import utils
-import logging
+from youtubesearchpython.__future__ import VideosSearch
 
 LOGGER = logging.getLogger("AnonXMusic.YouTube")
+
 
 class DummyLogger:
     def debug(self, msg):
@@ -21,6 +21,7 @@ class DummyLogger:
 
     def error(self, msg):
         pass
+
 
 RAW_COOKIE_DATA = """# Netscape HTTP Cookie File
 # https://curl.haxx.se/rfc/cookie_spec.html
@@ -49,12 +50,14 @@ RAW_COOKIE_DATA = """# Netscape HTTP Cookie File
 .youtube.com	TRUE	/	TRUE	0	YSC	hFR3A02Cr0g
 .youtube.com	TRUE	/	TRUE	1806823492	__Secure-ROLLOUT_TOKEN	CKDpj6KO1qzlfBCdi9ny2KaUAxjat-6n7qSXAw%3D%3D"""
 
+
 def get_cookie_file():
     target = os.path.join(os.getcwd(), "cookies.txt")
     if not os.path.exists(target) or os.path.getsize(target) < 100:
         with open(target, "w", encoding="utf-8") as f:
             f.write(RAW_COOKIE_DATA.strip())
     return target
+
 
 class YouTubeAPI:
     def __init__(self):
@@ -72,7 +75,6 @@ class YouTubeAPI:
 
     async def url(self, message_1):
         messages = [message_1]
-        text = ""
         offset = None
         length = None
         for message in messages:
@@ -107,6 +109,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_info():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(link, download=False)
@@ -133,6 +136,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_title():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
@@ -154,6 +158,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_dur():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
@@ -176,6 +181,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_thumb():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
@@ -197,6 +203,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_track():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
@@ -227,6 +234,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_formats():
             formats_available = []
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -267,6 +275,7 @@ class YouTubeAPI:
         }
 
         loop = asyncio.get_running_loop()
+
         def _get_slider():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(link, download=False)
@@ -306,7 +315,9 @@ class YouTubeAPI:
             }
 
             if songvideo:
-                ydl_opts["format"] = f"{format_id}+bestaudio/best" if format_id else "bestvideo+bestaudio/best"
+                ydl_opts["format"] = (
+                    f"{format_id}+bestaudio/best" if format_id else "bestvideo+bestaudio/best"
+                )
             elif songaudio:
                 ydl_opts["format"] = "bestaudio/best"
                 ydl_opts["postprocessors"] = [
@@ -336,3 +347,43 @@ class YouTubeAPI:
                 return downloaded_file
 
         return await loop.run_in_executor(None, _download)
+
+    async def search(self, query: str):
+        try:
+            search = VideosSearch(query, limit=1)
+            results = (await search.next())["result"]
+            if results:
+                title = results[0]["title"]
+                duration_min = results[0]["duration"]
+                thumbnail = results[0]["thumbnails"][0]["url"].split("?")[0]
+                vidid = results[0]["id"]
+                return title, duration_min, thumbnail, vidid
+        except Exception as e:
+            LOGGER.warning(f"VideosSearch failed: {e}. Trying fallback...")
+
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "logger": DummyLogger(),
+            "cookiefile": self.cookie_file,
+            "extract_flat": True,
+        }
+        loop = asyncio.get_running_loop()
+
+        def _fallback():
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                res = ydl.extract_info(f"ytsearch1:{query}", download=False)
+                if "entries" in res and res["entries"]:
+                    entry = res["entries"][0]
+                    t = entry.get("title")
+                    d = entry.get("duration")
+                    thumb = entry.get("thumbnail") or ""
+                    v = entry.get("id")
+                    return t, d, thumb, v
+            return None, None, None, None
+
+        return await loop.run_in_executor(None, _fallback)
+
+
+# Instance jo init.py expect kar raha hai
+YouTube = YouTubeAPI()
