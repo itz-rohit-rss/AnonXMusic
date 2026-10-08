@@ -1,9 +1,4 @@
-
-
-def save_cookies(self, *args, **kwargs):
-        self.cookie_file = get_cookie_file()
-        return self.cookie_file
-        # Copyright (C) 2024 AnonymousX1025
+# Copyright (C) 2024 AnonymousX1025
 # Licensed under the MIT License.
 # This file is part of AnonXMusic
 
@@ -379,4 +374,4 @@ class YouTube:
             return None, None, None, None
 
         return await loop.run_in_executor(None, _search)
-        
+            
