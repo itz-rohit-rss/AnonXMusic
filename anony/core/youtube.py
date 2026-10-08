@@ -1,3 +1,4 @@
+
 # Copyright (C) 2024 AnonymousX1025
 # Licensed under the MIT License.
 # This file is part of AnonXMusic
@@ -52,8 +53,9 @@ RAW_COOKIE_DATA = """# Netscape HTTP Cookie File
 
 def get_cookie_file():
     target = os.path.join(os.getcwd(), "cookies.txt")
-    with open(target, "w", encoding="utf-8") as f:
-        f.write(RAW_COOKIE_DATA.strip())
+    if not os.path.exists(target) or os.path.getsize(target) < 100:
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(RAW_COOKIE_DATA.strip())
     return target
 
 
@@ -63,6 +65,10 @@ class YouTube:
         self.regex = r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]{11})"
         self.status = "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v="
         self.cookie_file = get_cookie_file()
+
+    def save_cookies(self):
+        self.cookie_file = get_cookie_file()
+        return self.cookie_file
 
     async def exists(self, link: str, videoid: bool = False):
         if videoid:
