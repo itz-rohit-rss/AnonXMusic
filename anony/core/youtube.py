@@ -58,7 +58,7 @@ def get_cookie_file():
     return target
 
 
-class YouTubeAPI:
+class YouTube:
     def __init__(self):
         self.base = "https://www.youtube.com/watch?v="
         self.regex = r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]{11})"
@@ -312,3 +312,61 @@ class YouTubeAPI:
                 "geo_bypass": True,
                 "nocheckcertificate": True,
             }
+
+            if songvideo:
+                ydl_opts["format"] = (
+                    f"{format_id}+bestaudio/best" if format_id else "bestvideo+bestaudio/best"
+                )
+            elif songaudio:
+                ydl_opts["format"] = "bestaudio/best"
+                ydl_opts["postprocessors"] = [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "320",
+                    }
+                ]
+            elif video:
+                ydl_opts["format"] = "bestvideo[height<=?720][width<=?1280]+bestaudio/best"
+            else:
+                ydl_opts["format"] = "bestaudio/best"
+                ydl_opts["postprocessors"] = [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }
+                ]
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(link, download=True)
+                downloaded_file = ydl.prepare_filename(info)
+                if not songvideo and (not video or songaudio):
+                    downloaded_file = os.path.splitext(downloaded_file)[0] + ".mp3"
+                return downloaded_file
+
+        return await loop.run_in_executor(None, _download)
+
+    async def search(self, query: str):
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "logger": DummyLogger(),
+            "cookiefile": self.cookie_file,
+            "extract_flat": True,
+        }
+        loop = asyncio.get_running_loop()
+
+        def _search():
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                res = ydl.extract_info(f"ytsearch1:{query}", download=False)
+                if "entries" in res and res["entries"]:
+                    entry = res["entries"][0]
+                    t = entry.get("title")
+                    d = entry.get("duration")
+                    thumb = entry.get("thumbnail") or ""
+                    v = entry.get("id")
+                    return t, d, thumb, v
+            return None, None, None, None
+
+        return await loop.run_in_executor(None, _search)
