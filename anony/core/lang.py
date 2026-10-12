@@ -2,18 +2,13 @@ import os
 import logging
 from typing import List, Union
 from functools import wraps
-
 from pyrogram.types import CallbackQuery, Message
 from anony import db
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("AnonXMusic")
 
 languages = {}
 languages_present = {}
-
-
-def get_string(lang_code: str):
-    return languages.get(lang_code) or languages.get("en", {})
 
 
 def get_command(command: str) -> List[str]:
@@ -26,72 +21,34 @@ def get_command(command: str) -> List[str]:
 
 def load_languages():
     global languages, languages_present
-    possible_paths = ["./anony/strings/langs", "./strings/langs", "strings/langs"]
-    languages_dir = None
-    for p in possible_paths:
+    paths = ["./anony/strings/langs", "./strings/langs", "strings/langs"]
+    langs_dir = None
+    for p in paths:
         if os.path.exists(p):
-            languages_dir = p
+            langs_dir = p
             break
 
-    if not languages_dir:
+    if not langs_dir:
         return
 
-    for file in os.listdir(languages_dir):
+    for file in os.listdir(langs_dir):
         if file.endswith(".yml"):
             code = file[:-4]
             try:
                 import yaml
-
-                with open(
-                    os.path.join(languages_dir, file),
-                    "r",
-                    encoding="utf-8",
-                ) as stream:
+                with open(os.path.join(langs_dir, file), "r", encoding="utf-8") as stream:
                     data = yaml.safe_load(stream) or {}
                     languages[code] = data
                     languages_present[code] = data.get("name", code)
             except Exception as e:
-                LOGGER.warning(
-                    f"Language file '{file}' load karne me dikkat: {e}"
-                )
+                LOGGER.warning(f"Failed to load lang file {file}: {e}")
 
 
 load_languages()
 
 
-def _make_wrapper(mystic):
-    @wraps(mystic)
-    async def wrapper(client, message, *args, **kwargs):
-        if isinstance(message, CallbackQuery):
-            chat_id = message.message.chat.id
-        elif isinstance(message, Message):
-            chat_id = message.chat.id
-        else:
-            chat_id = None
-
-        lang_code = "en"
-        if chat_id:
-            try:
-                stored = await db.get(f"lang_{chat_id}")
-                if stored and stored in languages:
-                    lang_code = stored
-            except Exception:
-                lang_code = "en"
-
-        _lang = languages.get(lang_code) or languages.get("en", {})
-        return await mystic(client, message, _lang, *args, **kwargs)
-
-    return wrapper
-
-
-def language_decorator(*args, **kwargs):
-    if args and callable(args[0]):
-        return _make_wrapper(args[0])
-
-    def dec(func):
-        return _make_wrapper(func)
-
-    return dec
+def get_string(lang_code: str):
+    return languages.get(lang_code) or languages.get("en", {})
 
 
 class Language:
@@ -115,12 +72,49 @@ class Language:
             pass
 
     @staticmethod
-    def language(*args, **kwargs):
-        return language_decorator(*args, **kwargs)
+    def language(mystic):
+        @wraps(mystic)
+        async def wrapper(client, message, *args, **kwargs):
+            chat_id = message.chat.id if isinstance(message, Message) else getattr(getattr(message, "message", None), "chat", None)
+            chat_id = chat_id.id if hasattr(chat_id, "id") else chat_id
 
-    def __call__(self, *args, **kwargs):
-        return language_decorator(*args, **kwargs)
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
+                    lang_code = "en"
+
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, message, _lang, *args, **kwargs)
+
+        return wrapper
+
+    @staticmethod
+    def languageCB(mystic):
+        @wraps(mystic)
+        async def wrapper(client, CallbackQuery, *args, **kwargs):
+            chat_id = CallbackQuery.message.chat.id if CallbackQuery.message else None
+
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
+                    lang_code = "en"
+
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, CallbackQuery, _lang, *args, **kwargs)
+
+        return wrapper
 
 
 lang = Language()
-language = language_decorator
+
+# Top-level exports required by AnonXMusic plugins
+language = Language.language
+languageCB = Language.languageCB
