@@ -76,12 +76,17 @@ def language_universal(*args, **kwargs):
 
             _lang = languages.get(lang_code) or languages.get("en", {})
 
-            # Inspection to prevent: wrapper() takes 2 positional arguments but 3 were given
+            # Critical: Bind lang attribute directly to the message object
+            try:
+                setattr(message, "lang", _lang)
+            except Exception:
+                pass
+
             try:
                 sig = inspect.signature(mystic)
                 num_params = len(sig.parameters)
             except Exception:
-                num_params = 3
+                num_params = 2
 
             if num_params == 2:
                 return await mystic(client, message, *w_args, **w_kwargs)
@@ -112,11 +117,19 @@ def language_cb_universal(*args, **kwargs):
 
             _lang = languages.get(lang_code) or languages.get("en", {})
 
+            # Critical: Bind lang attribute to CallbackQuery and inner message
+            try:
+                setattr(CallbackQuery, "lang", _lang)
+                if hasattr(CallbackQuery, "message") and CallbackQuery.message:
+                    setattr(CallbackQuery.message, "lang", _lang)
+            except Exception:
+                pass
+
             try:
                 sig = inspect.signature(mystic)
                 num_params = len(sig.parameters)
             except Exception:
-                num_params = 3
+                num_params = 2
 
             if num_params == 2:
                 return await mystic(client, CallbackQuery, *w_args, **w_kwargs)
@@ -165,3 +178,4 @@ class Language:
 lang = Language()
 language = language_universal
 languageCB = language_cb_universal
+        
