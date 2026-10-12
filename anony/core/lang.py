@@ -1,25 +1,32 @@
 import os
+import logging
 from typing import List, Union
 
 from pyrogram import filters
 from pyrogram.types import CallbackQuery, Message
 
 from anony import db
-from anony.logging import LOGGER
+
+LOGGER = logging.getLogger(__name__)
 
 languages = {}
 languages_present = {}
 
 
 def get_command(command: str) -> List[str]:
-    from anony import COMMANDS
-
-    return COMMANDS[command]
+    try:
+        from anony import COMMANDS
+        return COMMANDS[command]
+    except Exception:
+        return [command]
 
 
 def load_languages():
     global languages, languages_present
     languages_dir = "./anony/strings/langs"
+    if not os.path.exists(languages_dir):
+        return
+
     for file in os.listdir(languages_dir):
         if file.endswith(".yml"):
             code = file[:-4]
@@ -31,10 +38,10 @@ def load_languages():
                     "r",
                     encoding="utf-8",
                 ) as stream:
-                    languages[code] = yaml.safe_load(stream)
+                    languages[code] = yaml.safe_load(stream) or {}
                 languages_present[code] = languages[code].get("name", code)
             except Exception as e:
-                LOGGER(__name__).warning(
+                LOGGER.warning(
                     f"Language file '{file}' ko load karne mein error: {e}"
                 )
 
@@ -48,11 +55,17 @@ class Language:
         self.languages_present = languages_present
 
     async def get_lang(self, chat_id: Union[int, str]) -> str:
-        lang = await db.get(f"lang_{chat_id}")
-        return lang or "en"
+        try:
+            lang = await db.get(f"lang_{chat_id}")
+            return lang or "en"
+        except Exception:
+            return "en"
 
     async def set_lang(self, chat_id: Union[int, str], lang: str):
-        await db.set(f"lang_{chat_id}", lang)
+        try:
+            await db.set(f"lang_{chat_id}", lang)
+        except Exception:
+            pass
 
     def __call__(self, mystic):
         async def wrapper(client, message, *args, **kwargs):
