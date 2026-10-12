@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import List, Union
+from functools import wraps
 
 from pyrogram.types import CallbackQuery, Message
 from anony import db
@@ -58,6 +59,41 @@ def load_languages():
 load_languages()
 
 
+def _make_wrapper(mystic):
+    @wraps(mystic)
+    async def wrapper(client, message, *args, **kwargs):
+        if isinstance(message, CallbackQuery):
+            chat_id = message.message.chat.id
+        elif isinstance(message, Message):
+            chat_id = message.chat.id
+        else:
+            chat_id = None
+
+        lang_code = "en"
+        if chat_id:
+            try:
+                stored = await db.get(f"lang_{chat_id}")
+                if stored and stored in languages:
+                    lang_code = stored
+            except Exception:
+                lang_code = "en"
+
+        _lang = languages.get(lang_code) or languages.get("en", {})
+        return await mystic(client, message, _lang, *args, **kwargs)
+
+    return wrapper
+
+
+def language_decorator(*args, **kwargs):
+    if args and callable(args[0]):
+        return _make_wrapper(args[0])
+
+    def dec(func):
+        return _make_wrapper(func)
+
+    return dec
+
+
 class Language:
     def __init__(self):
         self.languages = languages
@@ -78,32 +114,13 @@ class Language:
         except Exception:
             pass
 
-    @classmethod
-    def language(cls, mystic):
-        async def wrapper(client, message, *args, **kwargs):
-            if isinstance(message, CallbackQuery):
-                chat_id = message.message.chat.id
-            elif isinstance(message, Message):
-                chat_id = message.chat.id
-            else:
-                chat_id = None
+    @staticmethod
+    def language(*args, **kwargs):
+        return language_decorator(*args, **kwargs)
 
-            lang_code = "en"
-            if chat_id:
-                try:
-                    stored = await db.get(f"lang_{chat_id}")
-                    if stored and stored in languages:
-                        lang_code = stored
-                except Exception:
-                    lang_code = "en"
-
-            _lang = languages.get(lang_code) or languages.get("en", {})
-            return await mystic(client, message, _lang, *args, **kwargs)
-
-        return wrapper
-
-    def __call__(self, mystic):
-        return self.language(mystic)
+    def __call__(self, *args, **kwargs):
+        return language_decorator(*args, **kwargs)
 
 
 lang = Language()
+language = language_decorator
