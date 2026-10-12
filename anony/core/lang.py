@@ -1,39 +1,109 @@
-from strings import get_string
-from AnonXMusic.utils.database import get_lang
+import os
+import logging
+from typing import List, Union
+
+from pyrogram.types import CallbackQuery, Message
+from anony import db
+
+LOGGER = logging.getLogger(__name__)
+
+languages = {}
+languages_present = {}
 
 
-def language(mystic):
-    async def wrapper(_, message, **kwargs):
+def get_string(lang_code: str):
+    return languages.get(lang_code) or languages.get("en", {})
+
+
+def get_command(command: str) -> List[str]:
+    try:
+        from anony import COMMANDS
+        return COMMANDS[command]
+    except Exception:
+        return [command]
+
+
+def load_languages():
+    global languages, languages_present
+    possible_paths = ["./anony/strings/langs", "./strings/langs", "strings/langs"]
+    languages_dir = None
+    for p in possible_paths:
+        if os.path.exists(p):
+            languages_dir = p
+            break
+
+    if not languages_dir:
+        return
+
+    for file in os.listdir(languages_dir):
+        if file.endswith(".yml"):
+            code = file[:-4]
+            try:
+                import yaml
+
+                with open(
+                    os.path.join(languages_dir, file),
+                    "r",
+                    encoding="utf-8",
+                ) as stream:
+                    data = yaml.safe_load(stream) or {}
+                    languages[code] = data
+                    languages_present[code] = data.get("name", code)
+            except Exception as e:
+                LOGGER.warning(
+                    f"Language file '{file}' load karne me dikkat: {e}"
+                )
+
+
+load_languages()
+
+
+class Language:
+    def __init__(self):
+        self.languages = languages
+        self.languages_present = languages_present
+
+    async def get_lang(self, chat_id: Union[int, str]) -> str:
         try:
-            language = await get_lang(message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
-        return await mystic(_, message, language)
+            val = await db.get(f"lang_{chat_id}")
+            if val and val in self.languages:
+                return val
+        except Exception:
+            pass
+        return "en"
 
-    return wrapper
-
-
-def languageCB(mystic):
-    async def wrapper(_, CallbackQuery, **kwargs):
+    async def set_lang(self, chat_id: Union[int, str], lang: str):
         try:
-            language = await get_lang(CallbackQuery.message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
-        return await mystic(_, CallbackQuery, language)
+            await db.set(f"lang_{chat_id}", lang)
+        except Exception:
+            pass
 
-    return wrapper
+    @classmethod
+    def language(cls, mystic):
+        async def wrapper(client, message, *args, **kwargs):
+            if isinstance(message, CallbackQuery):
+                chat_id = message.message.chat.id
+            elif isinstance(message, Message):
+                chat_id = message.chat.id
+            else:
+                chat_id = None
+
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
+                    lang_code = "en"
+
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, message, _lang, *args, **kwargs)
+
+        return wrapper
+
+    def __call__(self, mystic):
+        return self.language(mystic)
 
 
-def LanguageStart(mystic):
-    async def wrapper(_, message, **kwargs):
-        try:
-            language = await get_lang(message.chat.id)
-            language = get_string(language)
-        except:
-            language = get_string("en")
-        return await mystic(_, message, language)
-
-    return wrapper
-    
+lang = Language()
