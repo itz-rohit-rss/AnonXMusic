@@ -67,7 +67,7 @@ class Language:
         except Exception:
             pass
 
-    def __call__(self, mystic):
+    def language(self, mystic):
         async def wrapper(client, message, *args, **kwargs):
             if isinstance(message, CallbackQuery):
                 chat_id = message.message.chat.id
@@ -83,7 +83,6 @@ class Language:
                 except Exception:
                     lang_code = "en"
 
-            # Safe Language Fallback (KeyError: None Prevention)
             if not lang_code or lang_code not in self.languages:
                 lang_code = "en"
 
@@ -92,6 +91,9 @@ class Language:
             return await mystic(client, message, lang_dict, *args, **kwargs)
 
         return wrapper
+
+    def __call__(self, mystic):
+        return self.language(mystic)
 
 
 lang = Language()
