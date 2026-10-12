@@ -1,35 +1,39 @@
 import os
 import sys
 import logging
-from pyrogram import Client
-import pyrogram.session.session
 
-# --- Critical Monkey-Patch for Pyrogram / Python 3.13 String Sessions ---
-# Pyrogram invokes Session.write() expecting self.file, which is None for in-memory string sessions.
-def _safe_session_write(self):
-    if getattr(self, "file", None) is not None:
-        try:
-            return self.file.write()
-        except Exception:
-            pass
-    return b""
+# Ensure root directory is in sys.path
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
-pyrogram.session.session.Session.write = _safe_session_write
-# ------------------------------------------------------------------------
+# --- Monkey-Patch for Pyrogram / Python 3.13 String Sessions ---
+# Fixes: AttributeError: 'NoneType' object has no attribute 'write' during invoke
+try:
+    import pyrogram.session.internals.msg_id
+except Exception:
+    pass
 
-from config import (
-    API_HASH,
-    API_ID,
-    BOT_TOKEN,
-    LOGGER_ID,
-    MONGO_DB_URI,
-    OWNER_ID,
-    STRING1,
-    STRING2,
-    STRING3,
-    STRING4,
-    STRING5,
-)
+try:
+    import pyrogram.session.session
+
+    def _safe_session_write(self):
+        if getattr(self, "file", None) is not None:
+            try:
+                return self.file.write()
+            except Exception:
+                pass
+        return b""
+
+    pyrogram.session.session.Session.write = _safe_session_write
+except Exception:
+    pass
+# ----------------------------------------------------------------
+
+# Import root config module and expose it inside anony
+import config
+from config import *
+
 from anony.core.bot import Anon
 from anony.core.dir import dirr
 from anony.core.git import git
