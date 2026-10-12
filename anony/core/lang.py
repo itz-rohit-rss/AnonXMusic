@@ -1,106 +1,84 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
+import os
+from typing import List, Union
+
+from pyrogram import filters
+from pyrogram.types import CallbackQuery, Message
+
+from anony import db
+from anony.logging import LOGGER
+
+languages = {}
+languages_present = {}
 
 
-import json
-from functools import wraps
-from pathlib import Path
+def get_command(command: str) -> List[str]:
+    from anony import COMMANDS
 
-from pyrogram import errors
+    return COMMANDS[command]
 
-from anony import db, logger
 
-lang_codes = {
-    "ar": "العربية",
-    "de": "Deutsch",
-    "en": "English",
-    "es": "Español",
-    "fr": "Français",
-    "hi": "हिन्दी",
-    "ja": "日本語",
-    "my": "မြန်မာဘာသာ",
-    "pa": "ਪੰਜਾਬੀ",
-    "pt": "Português",
-    "ru": "Русский",
-    "tr": "Türkçe",
-    "zh": "中文"
-}
+def load_languages():
+    global languages, languages_present
+    languages_dir = "./anony/strings/langs"
+    for file in os.listdir(languages_dir):
+        if file.endswith(".yml"):
+            code = file[:-4]
+            try:
+                import yaml
+
+                with open(
+                    os.path.join(languages_dir, file),
+                    "r",
+                    encoding="utf-8",
+                ) as stream:
+                    languages[code] = yaml.safe_load(stream)
+                languages_present[code] = languages[code].get("name", code)
+            except Exception as e:
+                LOGGER(__name__).warning(
+                    f"Language file '{file}' ko load karne mein error: {e}"
+                )
+
+
+load_languages()
 
 
 class Language:
-    """
-    Language class for managing multilingual support using JSON language files.
-    """
-
     def __init__(self):
-        self.lang_codes = lang_codes
-        self.lang_dir = Path("anony/locales")
-        self.languages = self.load_files()
+        self.languages = languages
+        self.languages_present = languages_present
 
-    def load_files(self):
-        languages = {}
-        lang_files = {file.stem: file for file in self.lang_dir.glob("*.json")}
-        for lang_code, lang_file in lang_files.items():
-            with open(lang_file, "r", encoding="utf-8") as file:
-                languages[lang_code] = json.load(file)
-        logger.info(f"Loaded languages: {', '.join(languages.keys())}")
-        return languages
+    async def get_lang(self, chat_id: Union[int, str]) -> str:
+        lang = await db.get(f"lang_{chat_id}")
+        return lang or "en"
 
-    async def get_lang(self, chat_id: int) -> dict:
-        lang_code = await db.get_lang(chat_id)
-        return self.languages[lang_code]
+    async def set_lang(self, chat_id: Union[int, str], lang: str):
+        await db.set(f"lang_{chat_id}", lang)
 
-    def get_languages(self) -> dict:
-        files = {f.stem for f in self.lang_dir.glob("*.json")}
-        return {code: self.lang_codes[code] for code in sorted(files)}
+    def __call__(self, mystic):
+        async def wrapper(client, message, *args, **kwargs):
+            if isinstance(message, CallbackQuery):
+                chat_id = message.message.chat.id
+            elif isinstance(message, Message):
+                chat_id = message.chat.id
+            else:
+                chat_id = None
 
-    def language(self):
-        def decorator(func):
-            @wraps(func)
-            async def wrapper(*args, **kwargs):
-                fallen = next(
-                    (
-                        arg
-                        for arg in args
-                        if hasattr(arg, "chat") or hasattr(arg, "message")
-                    ),
-                    None,
-                )
-
-                if not fallen.from_user:
-                    return
-
-                if hasattr(fallen, "chat"):
-                    chat = fallen.chat
-                elif hasattr(fallen, "message"):
-                    chat = fallen.message.chat
-
-                if not chat: return
-
-                if chat.id in db.blacklisted:
-                    logger.info(f"Chat {chat.id} is blacklisted, leaving...")
-                    return await chat.leave()
-
-                lang_code = await db.get_lang(chat.id)
-                lang_dict = self.languages[lang_code]
-
-                setattr(fallen, "lang", lang_dict)
+            lang_code = None
+            if chat_id:
                 try:
-                    return await func(*args, **kwargs)
-                except (errors.FloodWait, errors.SlowmodeWait):
-                    return
-                except (
-                    errors.ChannelInvalid, errors.ChannelPrivate,
-                    errors.MessageIdInvalid, errors.MessageNotModified,
-                ):
-                    return
-                except (
-                    errors.Forbidden, errors.exceptions.Forbidden,
-                    errors.ChatWriteForbidden, errors.exceptions.ChatWriteForbidden,
-                ):
-                    return
+                    lang_code = await self.get_lang(chat_id)
+                except Exception:
+                    lang_code = "en"
 
-            return wrapper
+            # Safe Language Fallback (KeyError: None Prevention)
+            if not lang_code or lang_code not in self.languages:
+                lang_code = "en"
 
-        return decorator
+            lang_dict = self.languages.get(lang_code) or self.languages.get("en", {})
+
+            return await mystic(client, message, lang_dict, *args, **kwargs)
+
+        return wrapper
+
+
+lang = Language()
