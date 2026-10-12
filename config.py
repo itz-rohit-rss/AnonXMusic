@@ -92,7 +92,6 @@ def time_to_seconds(time):
 DURATION_LIMIT = int(time_to_seconds(f"{DURATION_LIMIT_MIN}:00"))
 
 
-# Config Wrapper Class (required by anony/__init__.py)
 class Config:
     API_ID = API_ID
     API_HASH = API_HASH
@@ -125,4 +124,11 @@ class Config:
     START_IMG_URL = START_IMG_URL
     PING_IMG_URL = PING_IMG_URL
     DURATION_LIMIT = DURATION_LIMIT
-    
+
+    @staticmethod
+    def check():
+        return True
+
+
+def check():
+    return True
