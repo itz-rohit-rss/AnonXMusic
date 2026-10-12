@@ -24,8 +24,11 @@ GIT_TOKEN = os.getenv("GIT_TOKEN", None)
 SUPPORT_CHANNEL = os.getenv("SUPPORT_CHANNEL", "https://t.me/itz_rohit_rss")
 SUPPORT_CHAT = os.getenv("SUPPORT_CHAT", "https://t.me/THW_WORLD")
 
+# Auto-actions & Defaults
 AUTO_LEAVING_ASSISTANT = bool(os.getenv("AUTO_LEAVING_ASSISTANT", False))
+AUTO_LEAVE = bool(os.getenv("AUTO_LEAVE", False))
 AUTO_END = bool(os.getenv("AUTO_END", True))
+AUTO_DOWNLOADS_CLEAR = bool(os.getenv("AUTO_DOWNLOADS_CLEAR", True))
 AUTO_SUGGESTION_MODE = bool(os.getenv("AUTO_SUGGESTION_MODE", False))
 AUTO_SUGGESTION_TIME = int(os.getenv("AUTO_SUGGESTION_TIME", "540"))
 
@@ -117,7 +120,9 @@ class Config:
     SUPPORT_CHANNEL = SUPPORT_CHANNEL
     SUPPORT_CHAT = SUPPORT_CHAT
     AUTO_LEAVING_ASSISTANT = AUTO_LEAVING_ASSISTANT
+    AUTO_LEAVE = AUTO_LEAVE
     AUTO_END = AUTO_END
+    AUTO_DOWNLOADS_CLEAR = AUTO_DOWNLOADS_CLEAR
     AUTO_SUGGESTION_MODE = AUTO_SUGGESTION_MODE
     AUTO_SUGGESTION_TIME = AUTO_SUGGESTION_TIME
     SPOTIFY_CLIENT_ID = SPOTIFY_CLIENT_ID
@@ -147,6 +152,10 @@ class Config:
     @staticmethod
     def check():
         return True
+
+    @classmethod
+    def __getattr__(cls, name):
+        return None
 
 
 def check():
