@@ -56,10 +56,15 @@ STRING1 = ACTIVE_SESSION
 SESSION1 = ACTIVE_SESSION
 STRING_SESSION = ACTIVE_SESSION
 
-STRING2 = os.getenv("STRING_SESSION2", None) or os.getenv("STRING2", None)
-STRING3 = os.getenv("STRING_SESSION3", None) or os.getenv("STRING3", None)
-STRING4 = os.getenv("STRING_SESSION4", None) or os.getenv("STRING4", None)
-STRING5 = os.getenv("STRING_SESSION5", None) or os.getenv("STRING5", None)
+STRING2 = os.getenv("STRING_SESSION2", None) or os.getenv("STRING2", None) or os.getenv("SESSION2", None)
+STRING3 = os.getenv("STRING_SESSION3", None) or os.getenv("STRING3", None) or os.getenv("SESSION3", None)
+STRING4 = os.getenv("STRING_SESSION4", None) or os.getenv("STRING4", None) or os.getenv("SESSION4", None)
+STRING5 = os.getenv("STRING_SESSION5", None) or os.getenv("STRING5", None) or os.getenv("SESSION5", None)
+
+SESSION2 = STRING2
+SESSION3 = STRING3
+SESSION4 = STRING4
+SESSION5 = STRING5
 
 COOKIES_URL = os.getenv("COOKIES_URL", "https://batbin.me/raw/warms")
 
@@ -113,12 +118,20 @@ class Config:
     PLAYLIST_FETCH_LIMIT = PLAYLIST_FETCH_LIMIT
     TG_AUDIO_FILESIZE_LIMIT = TG_AUDIO_FILESIZE_LIMIT
     TG_VIDEO_FILESIZE_LIMIT = TG_VIDEO_FILESIZE_LIMIT
+    
+    # Sessions mapping
     STRING1 = STRING1
     STRING2 = STRING2
     STRING3 = STRING3
     STRING4 = STRING4
     STRING5 = STRING5
+    
     SESSION1 = SESSION1
+    SESSION2 = SESSION2
+    SESSION3 = SESSION3
+    SESSION4 = SESSION4
+    SESSION5 = SESSION5
+    
     STRING_SESSION = STRING_SESSION
     COOKIES_URL = COOKIES_URL
     START_IMG_URL = START_IMG_URL
