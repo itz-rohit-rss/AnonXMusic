@@ -1,52 +1,96 @@
-from os import getenv
-from dotenv import load_dotenv
+import os
+import re
+from pyrogram import filters
 
-load_dotenv()
+# Explicit Credentials (No missing variable issue)
+API_ID = int(os.getenv("API_ID", "35744976"))
+API_HASH = os.getenv("API_HASH", "459c0a59bdca46c1069916ef20ce70c9")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8633245391:AAGVjsbGqZdCt4i7oWvBeXye-QWermZAx2k")
 
-class Config:
-    def __init__(self):
-        self.API_ID = int(getenv("API_ID", 0))
-        self.API_HASH = getenv("API_HASH")
+# Database
+MONGO_DB_URI = os.getenv(
+    "MONGO_DB_URI",
+    "mongodb://mongo:BcqbVegOGzBWzNLXfDWtvSsEiFIMRLNK@mongodb.railway.internal:27017"
+)
 
-        self.BOT_TOKEN = getenv("BOT_TOKEN")
-        self.MONGO_URL = getenv("MONGO_URL")
+# Limits & Loggers
+DURATION_LIMIT_MIN = int(os.getenv("DURATION_LIMIT", 60))
+SONG_DOWNLOAD_DURATION = int(os.getenv("SONG_DOWNLOAD_DURATION_LIMIT", 180))
+OWNER_ID = int(os.getenv("OWNER_ID", "7885190981"))
+LOGGER_ID = int(os.getenv("LOGGER_ID", "-1002925549087"))
 
-        self.LOGGER_ID = int(getenv("LOGGER_ID", 0))
-        self.OWNER_ID = int(getenv("OWNER_ID", 0))
+# Upstream & Channels
+UPSTREAM_REPO = os.getenv("UPSTREAM_REPO", "https://github.com/AnonymousX1025/AnonXMusic")
+UPSTREAM_BRANCH = os.getenv("UPSTREAM_BRANCH", "master")
+GIT_TOKEN = os.getenv("GIT_TOKEN", None)
+SUPPORT_CHANNEL = os.getenv("SUPPORT_CHANNEL", "https://t.me/itz_rohit_rss")
+SUPPORT_CHAT = os.getenv("SUPPORT_CHAT", "https://t.me/THW_WORLD")
 
-        self.DURATION_LIMIT = int(getenv("DURATION_LIMIT", 60)) * 60
-        self.QUEUE_LIMIT = int(getenv("QUEUE_LIMIT", 20))
-        self.PLAYLIST_LIMIT = int(getenv("PLAYLIST_LIMIT", 20))
+AUTO_LEAVING_ASSISTANT = bool(os.getenv("AUTO_LEAVING_ASSISTANT", False))
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", None)
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", None)
+PLAYLIST_FETCH_LIMIT = int(os.getenv("PLAYLIST_FETCH_LIMIT", 25))
 
-        self.SESSION1 = getenv("SESSION", None)
-        self.SESSION2 = getenv("SESSION2", None)
-        self.SESSION3 = getenv("SESSION3", None)
+TG_AUDIO_FILESIZE_LIMIT = int(os.getenv("TG_AUDIO_FILESIZE_LIMIT", 104857600))
+TG_VIDEO_FILESIZE_LIMIT = int(os.getenv("TG_VIDEO_FILESIZE_LIMIT", 1073741824))
 
-        self.SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "https://t.me/fallenx")
-        self.SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/DevilsHeavenMF")
+# Assistant Session
+RAW_SESSION = (
+    "BTV0SXYAqoprWbOtA6IU2A_MgiUVGhB1axA3MYdnpRD1ZiTFuyKesUhif2LD8fpgqS4xLkv0"
+    "lD81IhgiT9WTbbzU6-Klcp9KIUvToMrAiMxNBIsc4sdIbYFOYeUadtqRprxd5-qz0jvzN-L7"
+    "GtrIa4CyAmnn3IpmbENsoAf9sgNl_jcOHDhrU6HiEqaysqnI4j6fE6O-RxMewDUqV9JzaM_6"
+    "XJUN0X9Qg7dqpQn7bMt_336rU5eWybuwyP6IS_bbY7qhGSFh6m1uHOLIp2qYkPphA1hHhA7"
+    "krhLGsqmDubkcVCnNL8RVe9KJju8rha1_EMC-HpA3Ur6ovZgT5mJcYcrvUfAspQAAAAHkw3WaAA"
+)
 
-        self.AUTO_LEAVE: bool = getenv("AUTO_LEAVE", "False").lower() == "true"
-        self.AUTO_END: bool = getenv("AUTO_END", "False").lower() == "true"
-    
-        self.THUMB_GEN: bool = getenv("THUMB_GEN", "True").lower() == "true"
-        self.VIDEO_PLAY: bool = getenv("VIDEO_PLAY", "True").lower() == "true"
+ACTIVE_SESSION = (
+    os.getenv("SESSION1")
+    or os.getenv("STRING_SESSION")
+    or os.getenv("STRING1")
+    or RAW_SESSION
+)
 
-        self.LANG_CODE = getenv("LANG_CODE", "en")
+# Strip surrounding quotes if Railway added them
+ACTIVE_SESSION = ACTIVE_SESSION.strip('"').strip("'")
 
-        self.COOKIES_URL = [
-            url for url in getenv("COOKIES_URL", "").split(" ")
-            if url and "batbin.me" in url
-        ]
-        self.DEFAULT_THUMB = getenv("DEFAULT_THUMB", "https://te.legra.ph/file/3e40a408286d4eda24191.jpg")
-        self.PING_IMG = getenv("PING_IMG", "https://files.catbox.moe/haagg2.png")
-        self.START_IMG = getenv("START_IMG", "https://files.catbox.moe/zvziwk.jpg")
+# Export to OS environment so internal checks pass
+os.environ["SESSION1"] = ACTIVE_SESSION
+os.environ["STRING_SESSION"] = ACTIVE_SESSION
+os.environ["STRING1"] = ACTIVE_SESSION
 
-    def check(self):
-        missing = [
-            var
-            for var in ["API_ID", "API_HASH", "BOT_TOKEN", "MONGO_URL", "LOGGER_ID", "OWNER_ID", "SESSION1"]
-            if not getattr(self, var)
-        ]
-        if missing:
-            raise SystemExit(f"Missing required environment variables: {', '.join(missing)}")
+STRING1 = ACTIVE_SESSION
+SESSION1 = ACTIVE_SESSION
+STRING_SESSION = ACTIVE_SESSION
 
+STRING2 = os.getenv("STRING_SESSION2", None) or os.getenv("STRING2", None)
+STRING3 = os.getenv("STRING_SESSION3", None) or os.getenv("STRING3", None)
+STRING4 = os.getenv("STRING_SESSION4", None) or os.getenv("STRING4", None)
+STRING5 = os.getenv("STRING_SESSION5", None) or os.getenv("STRING5", None)
+
+COOKIES_URL = os.getenv("COOKIES_URL", "https://batbin.me/raw/warms")
+
+BANNED_USERS = filters.user()
+adminlist = {}
+lyrical = {}
+votemode = {}
+autoclean = []
+confirmer = {}
+
+START_IMG_URL = os.getenv("START_IMG_URL", "https://te.legra.ph/file/20641be20772719a7e289.jpg")
+PING_IMG_URL = os.getenv("PING_IMG_URL", "https://te.legra.ph/file/20641be20772719a7e289.jpg")
+PLAYLIST_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+STATS_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+TELEGRAM_AUDIO_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+TELEGRAM_VIDEO_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+STREAM_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+SOUNCLOUD_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+YOUTUBE_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+SPOTIFY_ARTIST_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+SPOTIFY_ALBUM_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+SPOTIFY_PLAYLIST_IMG_URL = "https://te.legra.ph/file/20641be20772719a7e289.jpg"
+
+def time_to_seconds(time):
+    stringt = str(time)
+    return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
+
+DURATION_LIMIT = int(time_to_seconds(f"{DURATION_LIMIT_MIN}:00"))
