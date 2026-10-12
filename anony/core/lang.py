@@ -9,13 +9,60 @@ from anony import db
 
 LOGGER = logging.getLogger("AnonXMusic")
 
+# Load native string mappings safely
 languages = {}
 languages_present = {}
 
+try:
+    from strings import languages as _langs, languages_present as _lp
+    languages = _langs
+    languages_present = _lp
+except Exception:
+    try:
+        from anony.strings import languages as _langs, languages_present as _lp
+        languages = _langs
+        languages_present = _lp
+    except Exception:
+        pass
+
+# Fallback: Agar upar se import na ho sake toh filesystem scan
+if not languages:
+    paths = ["./strings/langs", "./anony/strings/langs", "strings/langs"]
+    langs_dir = None
+    for p in paths:
+        if os.path.exists(p):
+            langs_dir = p
+            break
+    if langs_dir:
+        for file in os.listdir(langs_dir):
+            if file.endswith(".yml"):
+                code = file[:-4]
+                try:
+                    import yaml
+                    with open(os.path.join(langs_dir, file), "r", encoding="utf-8") as s:
+                        data = yaml.safe_load(s) or {}
+                        languages[code] = data
+                        languages_present[code] = data.get("name", code)
+                except Exception:
+                    pass
+
+# Fail-safe dict jo missing keys par kabhi KeyError na feke
+class SafeLangDict(dict):
+    def __missing__(self, key):
+        en_dict = languages.get("en", {})
+        if isinstance(en_dict, dict) and key in en_dict:
+            return en_dict[key]
+        return "{0}"
+
+def get_safe_lang(chat_lang_code):
+    raw = languages.get(chat_lang_code) or languages.get("en") or {}
+    safe = SafeLangDict()
+    if isinstance(raw, dict):
+        safe.update(raw)
+    return safe
 
 def get_string(lang_code: str):
-    return languages.get(lang_code) or languages.get("en", {})
-
+    return get_safe_lang(lang_code)
 
 def get_command(command: str) -> List[str]:
     try:
@@ -23,35 +70,6 @@ def get_command(command: str) -> List[str]:
         return COMMANDS[command]
     except Exception:
         return [command]
-
-
-def load_languages():
-    global languages, languages_present
-    paths = ["./anony/strings/langs", "./strings/langs", "strings/langs"]
-    langs_dir = None
-    for p in paths:
-        if os.path.exists(p):
-            langs_dir = p
-            break
-
-    if not langs_dir:
-        return
-
-    for file in os.listdir(langs_dir):
-        if file.endswith(".yml"):
-            code = file[:-4]
-            try:
-                import yaml
-                with open(os.path.join(langs_dir, file), "r", encoding="utf-8") as stream:
-                    data = yaml.safe_load(stream) or {}
-                    languages[code] = data
-                    languages_present[code] = data.get("name", code)
-            except Exception as e:
-                LOGGER.warning(f"Failed to load lang file {file}: {e}")
-
-
-load_languages()
-
 
 def language_universal(*args, **kwargs):
     def decorator(mystic):
@@ -69,14 +87,13 @@ def language_universal(*args, **kwargs):
             if chat_id:
                 try:
                     stored = await db.get(f"lang_{chat_id}")
-                    if stored and stored in languages:
+                    if stored:
                         lang_code = stored
                 except Exception:
                     lang_code = "en"
 
-            _lang = languages.get(lang_code) or languages.get("en", {})
+            _lang = get_safe_lang(lang_code)
 
-            # Critical: Bind lang attribute directly to the message object
             try:
                 setattr(message, "lang", _lang)
             except Exception:
@@ -99,7 +116,6 @@ def language_universal(*args, **kwargs):
         return decorator(args[0])
     return decorator
 
-
 def language_cb_universal(*args, **kwargs):
     def decorator(mystic):
         @wraps(mystic)
@@ -110,14 +126,13 @@ def language_cb_universal(*args, **kwargs):
             if chat_id:
                 try:
                     stored = await db.get(f"lang_{chat_id}")
-                    if stored and stored in languages:
+                    if stored:
                         lang_code = stored
                 except Exception:
                     lang_code = "en"
 
-            _lang = languages.get(lang_code) or languages.get("en", {})
+            _lang = get_safe_lang(lang_code)
 
-            # Critical: Bind lang attribute to CallbackQuery and inner message
             try:
                 setattr(CallbackQuery, "lang", _lang)
                 if hasattr(CallbackQuery, "message") and CallbackQuery.message:
@@ -142,7 +157,6 @@ def language_cb_universal(*args, **kwargs):
         return decorator(args[0])
     return decorator
 
-
 class Language:
     def __init__(self):
         self.languages = languages
@@ -151,7 +165,7 @@ class Language:
     async def get_lang(self, chat_id: Union[int, str]) -> str:
         try:
             val = await db.get(f"lang_{chat_id}")
-            if val and val in self.languages:
+            if val:
                 return val
         except Exception:
             pass
@@ -173,7 +187,6 @@ class Language:
 
     def __call__(self, *args, **kwargs):
         return language_universal(*args, **kwargs)
-
 
 lang = Language()
 language = language_universal
