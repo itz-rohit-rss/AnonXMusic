@@ -1,79 +1,59 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
-
-
-import time
-import asyncio
+import os
+import sys
 import logging
-from logging.handlers import RotatingFileHandler
+from pyrogram import Client
+import pyrogram.session.session
 
-logging.basicConfig(
-    format="[%(asctime)s - %(levelname)s] - %(name)s: %(message)s",
-    datefmt="%d-%b-%y %H:%M:%S",
-    handlers=[
-        RotatingFileHandler("log.txt", maxBytes=10485760, backupCount=5),
-        logging.StreamHandler(),
-    ],
-    level=logging.INFO,
+# --- Critical Monkey-Patch for Pyrogram / Python 3.13 String Sessions ---
+# Pyrogram invokes Session.write() expecting self.file, which is None for in-memory string sessions.
+def _safe_session_write(self):
+    if getattr(self, "file", None) is not None:
+        try:
+            return self.file.write()
+        except Exception:
+            pass
+    return b""
+
+pyrogram.session.session.Session.write = _safe_session_write
+# ------------------------------------------------------------------------
+
+from config import (
+    API_HASH,
+    API_ID,
+    BOT_TOKEN,
+    LOGGER_ID,
+    MONGO_DB_URI,
+    OWNER_ID,
+    STRING1,
+    STRING2,
+    STRING3,
+    STRING4,
+    STRING5,
 )
-logging.getLogger("httpx").setLevel(logging.ERROR)
-logging.getLogger("ntgcalls").setLevel(logging.CRITICAL)
-logging.getLogger("pymongo").setLevel(logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.ERROR)
-logging.getLogger("pytgcalls").setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
-
-
-__version__ = "3.0.3"
-
-from config import Config
-
-config = Config()
-config.check()
-tasks = []
-boot = time.time()
-
-from anony.core.bot import Bot
-app = Bot()
-
-from anony.core.dir import ensure_dirs
-ensure_dirs()
-
+from anony.core.bot import Anon
+from anony.core.dir import dirr
+from anony.core.git import git
 from anony.core.userbot import Userbot
+from anony.misc import dbb, heroku
+
+from .logging import LOGGER
+
+dirr()
+git()
+dbb()
+heroku()
+
+app = Anon()
 userbot = Userbot()
 
-from anony.core.mongo import MongoDB
-db = MongoDB()
+from .platforms import *
 
-from anony.core.lang import Language
-lang = Language()
+YouTube = YouTube()
+Carbon = Carbon()
+Spotify = Spotify()
+Apple = Apple()
+Resso = Resso()
+SoundCloud = SoundAPI()
+Telegram = TeleAPI()
 
-from anony.core.telegram import Telegram
-from anony.core.youtube import YouTube
-tg = Telegram()
-yt = YouTube()
-
-from anony.helpers import Queue, Thumbnail
-queue = Queue()
-thumb = Thumbnail()
-
-from anony.core.calls import TgCall
-anon = TgCall()
-
-
-async def stop() -> None:
-    logger.info("Stopping...")
-    for task in tasks:
-        task.cancel()
-        try:
-            await task
-        except asyncio.exceptions.CancelledError:
-            pass
-
-    await app.exit()
-    await userbot.exit()
-    await db.close()
-    await thumb.close()
-
-    logger.info("Stopped.\n")
+COMMANDS = {}
