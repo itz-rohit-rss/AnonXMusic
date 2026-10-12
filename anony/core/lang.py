@@ -67,32 +67,37 @@ class Language:
         except Exception:
             pass
 
-    def language(self, mystic):
-        async def wrapper(client, message, *args, **kwargs):
-            if isinstance(message, CallbackQuery):
-                chat_id = message.message.chat.id
-            elif isinstance(message, Message):
-                chat_id = message.chat.id
-            else:
-                chat_id = None
+    @classmethod
+    def language(cls, mystic=None):
+        def decorator(func):
+            async def wrapper(client, message, *args, **kwargs):
+                if isinstance(message, CallbackQuery):
+                    chat_id = message.message.chat.id
+                elif isinstance(message, Message):
+                    chat_id = message.chat.id
+                else:
+                    chat_id = None
 
-            lang_code = None
-            if chat_id:
-                try:
-                    lang_code = await self.get_lang(chat_id)
-                except Exception:
+                lang_code = None
+                if chat_id:
+                    try:
+                        lang_code = await db.get(f"lang_{chat_id}")
+                    except Exception:
+                        lang_code = "en"
+
+                if not lang_code or lang_code not in languages:
                     lang_code = "en"
 
-            if not lang_code or lang_code not in self.languages:
-                lang_code = "en"
+                lang_dict = languages.get(lang_code) or languages.get("en", {})
+                return await func(client, message, lang_dict, *args, **kwargs)
 
-            lang_dict = self.languages.get(lang_code) or self.languages.get("en", {})
+            return wrapper
 
-            return await mystic(client, message, lang_dict, *args, **kwargs)
+        if callable(mystic):
+            return decorator(mystic)
+        return decorator
 
-        return wrapper
-
-    def __call__(self, mystic):
+    def __call__(self, mystic=None):
         return self.language(mystic)
 
 
