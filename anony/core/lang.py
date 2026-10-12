@@ -2,9 +2,7 @@ import os
 import logging
 from typing import List, Union
 
-from pyrogram import filters
 from pyrogram.types import CallbackQuery, Message
-
 from anony import db
 
 LOGGER = logging.getLogger(__name__)
@@ -38,11 +36,12 @@ def load_languages():
                     "r",
                     encoding="utf-8",
                 ) as stream:
-                    languages[code] = yaml.safe_load(stream) or {}
-                languages_present[code] = languages[code].get("name", code)
+                    data = yaml.safe_load(stream) or {}
+                    languages[code] = data
+                    languages_present[code] = data.get("name", code)
             except Exception as e:
                 LOGGER.warning(
-                    f"Language file '{file}' ko load karne mein error: {e}"
+                    f"Language file '{file}' load karne me dikkat: {e}"
                 )
 
 
@@ -56,10 +55,12 @@ class Language:
 
     async def get_lang(self, chat_id: Union[int, str]) -> str:
         try:
-            lang = await db.get(f"lang_{chat_id}")
-            return lang or "en"
+            val = await db.get(f"lang_{chat_id}")
+            if val and val in self.languages:
+                return val
         except Exception:
-            return "en"
+            pass
+        return "en"
 
     async def set_lang(self, chat_id: Union[int, str], lang: str):
         try:
@@ -68,36 +69,30 @@ class Language:
             pass
 
     @classmethod
-    def language(cls, mystic=None):
-        def decorator(func):
-            async def wrapper(client, message, *args, **kwargs):
-                if isinstance(message, CallbackQuery):
-                    chat_id = message.message.chat.id
-                elif isinstance(message, Message):
-                    chat_id = message.chat.id
-                else:
-                    chat_id = None
+    def language(cls, mystic):
+        async def wrapper(client, message, *args, **kwargs):
+            if isinstance(message, CallbackQuery):
+                chat_id = message.message.chat.id
+            elif isinstance(message, Message):
+                chat_id = message.chat.id
+            else:
+                chat_id = None
 
-                lang_code = None
-                if chat_id:
-                    try:
-                        lang_code = await db.get(f"lang_{chat_id}")
-                    except Exception:
-                        lang_code = "en"
-
-                if not lang_code or lang_code not in languages:
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
                     lang_code = "en"
 
-                lang_dict = languages.get(lang_code) or languages.get("en", {})
-                return await func(client, message, lang_dict, *args, **kwargs)
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, message, _lang, *args, **kwargs)
 
-            return wrapper
+        return wrapper
 
-        if callable(mystic):
-            return decorator(mystic)
-        return decorator
-
-    def __call__(self, mystic=None):
+    def __call__(self, mystic):
         return self.language(mystic)
 
 
