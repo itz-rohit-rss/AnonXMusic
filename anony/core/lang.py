@@ -1,4 +1,5 @@
 import os
+import inspect
 import logging
 from typing import List, Union
 from functools import wraps
@@ -52,27 +53,13 @@ def load_languages():
 load_languages()
 
 
-def _get_lang_dict(chat_id):
-    lang_code = "en"
-    if chat_id:
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Handled inside async wrapper
-                pass
-        except Exception:
-            pass
-    return languages.get(lang_code) or languages.get("en", {})
-
-
 def language_universal(*args, **kwargs):
     def decorator(mystic):
         @wraps(mystic)
         async def wrapper(client, message, *w_args, **w_kwargs):
             chat_id = None
             if isinstance(message, CallbackQuery):
-                chat_id = message.message.chat.id if message.message else None
+                chat_id = message.message.chat.id if getattr(message, "message", None) else None
             elif isinstance(message, Message):
                 chat_id = message.chat.id
             elif hasattr(message, "chat"):
@@ -88,14 +75,23 @@ def language_universal(*args, **kwargs):
                     lang_code = "en"
 
             _lang = languages.get(lang_code) or languages.get("en", {})
-            return await mystic(client, message, _lang, *w_args, **w_kwargs)
+
+            # Inspection to prevent: wrapper() takes 2 positional arguments but 3 were given
+            try:
+                sig = inspect.signature(mystic)
+                num_params = len(sig.parameters)
+            except Exception:
+                num_params = 3
+
+            if num_params == 2:
+                return await mystic(client, message, *w_args, **w_kwargs)
+            else:
+                return await mystic(client, message, _lang, *w_args, **w_kwargs)
+
         return wrapper
 
-    # Agar @language ya @Language.language (bina bracket) use hua ho:
     if args and callable(args[0]):
         return decorator(args[0])
-
-    # Agar @language() ya @Language.language() (bracket ke sath) use hua ho:
     return decorator
 
 
@@ -115,7 +111,18 @@ def language_cb_universal(*args, **kwargs):
                     lang_code = "en"
 
             _lang = languages.get(lang_code) or languages.get("en", {})
-            return await mystic(client, CallbackQuery, _lang, *w_args, **w_kwargs)
+
+            try:
+                sig = inspect.signature(mystic)
+                num_params = len(sig.parameters)
+            except Exception:
+                num_params = 3
+
+            if num_params == 2:
+                return await mystic(client, CallbackQuery, *w_args, **w_kwargs)
+            else:
+                return await mystic(client, CallbackQuery, _lang, *w_args, **w_kwargs)
+
         return wrapper
 
     if args and callable(args[0]):
