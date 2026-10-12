@@ -2,6 +2,7 @@ import os
 import logging
 from typing import List, Union
 from functools import wraps
+
 from pyrogram.types import CallbackQuery, Message
 from anony import db
 
@@ -9,6 +10,10 @@ LOGGER = logging.getLogger("AnonXMusic")
 
 languages = {}
 languages_present = {}
+
+
+def get_string(lang_code: str):
+    return languages.get(lang_code) or languages.get("en", {})
 
 
 def get_command(command: str) -> List[str]:
@@ -47,8 +52,75 @@ def load_languages():
 load_languages()
 
 
-def get_string(lang_code: str):
+def _get_lang_dict(chat_id):
+    lang_code = "en"
+    if chat_id:
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Handled inside async wrapper
+                pass
+        except Exception:
+            pass
     return languages.get(lang_code) or languages.get("en", {})
+
+
+def language_universal(*args, **kwargs):
+    def decorator(mystic):
+        @wraps(mystic)
+        async def wrapper(client, message, *w_args, **w_kwargs):
+            chat_id = None
+            if isinstance(message, CallbackQuery):
+                chat_id = message.message.chat.id if message.message else None
+            elif isinstance(message, Message):
+                chat_id = message.chat.id
+            elif hasattr(message, "chat"):
+                chat_id = getattr(message.chat, "id", None)
+
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
+                    lang_code = "en"
+
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, message, _lang, *w_args, **w_kwargs)
+        return wrapper
+
+    # Agar @language ya @Language.language (bina bracket) use hua ho:
+    if args and callable(args[0]):
+        return decorator(args[0])
+
+    # Agar @language() ya @Language.language() (bracket ke sath) use hua ho:
+    return decorator
+
+
+def language_cb_universal(*args, **kwargs):
+    def decorator(mystic):
+        @wraps(mystic)
+        async def wrapper(client, CallbackQuery, *w_args, **w_kwargs):
+            chat_id = CallbackQuery.message.chat.id if getattr(CallbackQuery, "message", None) else None
+
+            lang_code = "en"
+            if chat_id:
+                try:
+                    stored = await db.get(f"lang_{chat_id}")
+                    if stored and stored in languages:
+                        lang_code = stored
+                except Exception:
+                    lang_code = "en"
+
+            _lang = languages.get(lang_code) or languages.get("en", {})
+            return await mystic(client, CallbackQuery, _lang, *w_args, **w_kwargs)
+        return wrapper
+
+    if args and callable(args[0]):
+        return decorator(args[0])
+    return decorator
 
 
 class Language:
@@ -72,49 +144,17 @@ class Language:
             pass
 
     @staticmethod
-    def language(mystic):
-        @wraps(mystic)
-        async def wrapper(client, message, *args, **kwargs):
-            chat_id = message.chat.id if isinstance(message, Message) else getattr(getattr(message, "message", None), "chat", None)
-            chat_id = chat_id.id if hasattr(chat_id, "id") else chat_id
-
-            lang_code = "en"
-            if chat_id:
-                try:
-                    stored = await db.get(f"lang_{chat_id}")
-                    if stored and stored in languages:
-                        lang_code = stored
-                except Exception:
-                    lang_code = "en"
-
-            _lang = languages.get(lang_code) or languages.get("en", {})
-            return await mystic(client, message, _lang, *args, **kwargs)
-
-        return wrapper
+    def language(*args, **kwargs):
+        return language_universal(*args, **kwargs)
 
     @staticmethod
-    def languageCB(mystic):
-        @wraps(mystic)
-        async def wrapper(client, CallbackQuery, *args, **kwargs):
-            chat_id = CallbackQuery.message.chat.id if CallbackQuery.message else None
+    def languageCB(*args, **kwargs):
+        return language_cb_universal(*args, **kwargs)
 
-            lang_code = "en"
-            if chat_id:
-                try:
-                    stored = await db.get(f"lang_{chat_id}")
-                    if stored and stored in languages:
-                        lang_code = stored
-                except Exception:
-                    lang_code = "en"
-
-            _lang = languages.get(lang_code) or languages.get("en", {})
-            return await mystic(client, CallbackQuery, _lang, *args, **kwargs)
-
-        return wrapper
+    def __call__(self, *args, **kwargs):
+        return language_universal(*args, **kwargs)
 
 
 lang = Language()
-
-# Top-level exports required by AnonXMusic plugins
-language = Language.language
-languageCB = Language.languageCB
+language = language_universal
+languageCB = language_cb_universal
