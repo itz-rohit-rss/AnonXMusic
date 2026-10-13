@@ -1,79 +1,42 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
+import os
+import sys
+from pyrogram import Client
+from pytgcalls import PyTgCalls
 
+import config
 
-import time
-import asyncio
+# Logging setup
 import logging
-from logging.handlers import RotatingFileHandler
-
 logging.basicConfig(
-    format="[%(asctime)s - %(levelname)s] - %(name)s: %(message)s",
-    datefmt="%d-%b-%y %H:%M:%S",
-    handlers=[
-        RotatingFileHandler("log.txt", maxBytes=10485760, backupCount=5),
-        logging.StreamHandler(),
-    ],
-    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
 )
-logging.getLogger("httpx").setLevel(logging.ERROR)
-logging.getLogger("ntgcalls").setLevel(logging.CRITICAL)
-logging.getLogger("pymongo").setLevel(logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.ERROR)
-logging.getLogger("pytgcalls").setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger("AnonX")
 
+class Anon(Client):
+    def __init__(self):
+        super().__init__(
+            name="AnonX",
+            api_id=config.API_ID,
+            api_hash=config.API_HASH,
+            bot_token=config.BOT_TOKEN,
+        )
 
-__version__ = "3.0.3"
+    async def start(self):
+        await super().start()
+        LOGGER.info("Bot Started Successfully")
 
-from config import Config
+    async def stop(self):
+        await super().stop()
+        LOGGER.info("Bot Stopped")
 
-config = Config()
-config.check()
-tasks = []
-boot = time.time()
+app = Anon()
 
-from anony.core.bot import Bot
-app = Bot()
+userbot = Client(
+    name="AnonUserbot",
+    api_id=config.API_ID,
+    api_hash=config.API_HASH,
+    session_string=config.STRING_SESSION,
+)
 
-from anony.core.dir import ensure_dirs
-ensure_dirs()
-
-from anony.core.userbot import Userbot
-userbot = Userbot()
-
-from anony.core.mongo import MongoDB
-db = MongoDB()
-
-from anony.core.lang import Language
-lang = Language()
-
-from anony.core.telegram import Telegram
-from anony.core.youtube import YouTube
-tg = Telegram()
-yt = YouTube()
-
-from anony.helpers import Queue, Thumbnail
-queue = Queue()
-thumb = Thumbnail()
-
-from anony.core.calls import TgCall
-anon = TgCall()
-
-
-async def stop() -> None:
-    logger.info("Stopping...")
-    for task in tasks:
-        task.cancel()
-        try:
-            await task
-        except asyncio.exceptions.CancelledError:
-            pass
-
-    await app.exit()
-    await userbot.exit()
-    await db.close()
-    await thumb.close()
-
-    logger.info("Stopped.\n")
+pytgcalls = PyTgCalls(userbot)
