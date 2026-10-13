@@ -7,6 +7,16 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
+# Standard logging fallback (Fixes: No module named 'anony.logging')
+logging.basicConfig(
+    format="[%(asctime)s - %(levelname)s] - %(name)s - %(message)s",
+    datefmt="%d-%b-%y %H:%M:%S",
+    handlers=[logging.StreamHandler()],
+    level=logging.INFO,
+)
+LOGGER = logging.getLogger("AnonXMusic")
+logger = LOGGER
+
 # --- Monkey-Patch for Pyrogram / Python 3.13 String Sessions ---
 try:
     import pyrogram.session.session
@@ -27,9 +37,6 @@ except Exception:
 # Root config import & export
 import config
 from config import *
-
-from .logging import LOGGER
-logger = LOGGER
 
 from anony.core.bot import Anon
 from anony.core.dir import dirr
