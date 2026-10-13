@@ -8,12 +8,6 @@ if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 # --- Monkey-Patch for Pyrogram / Python 3.13 String Sessions ---
-# Fixes: AttributeError: 'NoneType' object has no attribute 'write' during invoke
-try:
-    import pyrogram.session.internals.msg_id
-except Exception:
-    pass
-
 try:
     import pyrogram.session.session
 
@@ -28,19 +22,20 @@ try:
     pyrogram.session.session.Session.write = _safe_session_write
 except Exception:
     pass
-# ----------------------------------------------------------------
+# --------------------------------------------------------------
 
-# Import root config module and expose it inside anony
+# Root config import & export
 import config
 from config import *
+
+from .logging import LOGGER
+logger = LOGGER
 
 from anony.core.bot import Anon
 from anony.core.dir import dirr
 from anony.core.git import git
 from anony.core.userbot import Userbot
 from anony.misc import dbb, heroku
-
-from .logging import LOGGER
 
 dirr()
 git()
